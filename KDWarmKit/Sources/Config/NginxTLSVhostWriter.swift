@@ -13,7 +13,7 @@ public struct NginxTLSVhostWriter {
 
     /// HTTPS server for a site. `phpFpmSocket == nil` → static `try_files` (no fastcgi).
     public func secureVhost(domain: String, root: URL, certFile: URL, keyFile: URL,
-                            phpFpmSocket: URL?) -> String {
+                            phpFpmSocket: URL?, accessLog: URL? = nil, errorLog: URL? = nil) -> String {
         let routing = phpFpmSocket.map { phpRouting(socket: $0) } ?? staticRouting()
         let index = phpFpmSocket == nil ? "index.html index.htm" : "index.php index.html"
         return """
@@ -22,7 +22,7 @@ public struct NginxTLSVhostWriter {
             http2 on;
             server_name \(domain);
             root \(root.path);
-            index \(index);
+            index \(index);\(NginxConfigWriter.logDirectives(access: accessLog, error: errorLog))
 
             ssl_certificate \(certFile.path);
             ssl_certificate_key \(keyFile.path);

@@ -7,6 +7,14 @@ struct DashboardWindow: View {
     static let windowID = "dashboard"
 
     @State private var selection: SidebarItem? = .sites
+    /// Deep-link target for the Logs view (a `LogSource.id`) set by a Services/Sites "Logs" action.
+    @State private var logTarget: String?
+
+    /// Jump to the Logs view, optionally preselecting a source.
+    private func openLogs(_ sourceID: String?) {
+        logTarget = sourceID
+        selection = .logs
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -23,10 +31,10 @@ struct DashboardWindow: View {
     @ViewBuilder
     private func detail(for item: SidebarItem) -> some View {
         switch item {
-        case .sites:    SitesSectionView()
-        case .services: ServicesSectionView(onNavigate: { selection = $0 })
+        case .sites:    SitesSectionView(onOpenLogs: openLogs)
+        case .services: ServicesSectionView(onNavigate: { selection = $0 }, onOpenLogs: openLogs)
         case .runtimes: RuntimesSectionView()
-        case .logs:     LogsSectionView()
+        case .logs:     LogsSectionView(targetSourceID: logTarget)
         case .mail:     MailSectionView()
         case .settings: SettingsView()
         }

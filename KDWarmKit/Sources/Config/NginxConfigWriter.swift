@@ -51,14 +51,24 @@ public struct NginxConfigWriter {
         """
     }
 
+    /// Per-server `access_log`/`error_log` directives (empty when no paths given). Lets the Logs
+    /// viewer tail one site in isolation (Phase 8).
+    public static func logDirectives(access: URL?, error: URL?) -> String {
+        var lines: [String] = []
+        if let access { lines.append("    access_log \(access.path);") }
+        if let error { lines.append("    error_log \(error.path);") }
+        return lines.isEmpty ? "" : "\n" + lines.joined(separator: "\n")
+    }
+
     /// A single PHP-serving vhost. `port` defaults to 80; the host is always the wildcard.
-    public func vhost(domain: String, root: URL, phpFpmSocket: URL, port: Int = 80) -> String {
+    public func vhost(domain: String, root: URL, phpFpmSocket: URL, port: Int = 80,
+                      accessLog: URL? = nil, errorLog: URL? = nil) -> String {
         """
         server {
             listen \(Self.listenAddress):\(port);
             server_name \(domain);
             root \(root.path);
-            index index.php index.html;
+            index index.php index.html;\(Self.logDirectives(access: accessLog, error: errorLog))
 
             location / {
                 try_files $uri $uri/ /index.php?$query_string;
@@ -95,13 +105,14 @@ public struct NginxConfigWriter {
     /// A static vhost (plain HTML / a Node app's build output): `try_files` only, NO fastcgi —
     /// routing a non-PHP site through PHP-FPM yields 502/blank. Used for `.staticSite` and, for
     /// now, `.node` (a real `proxy_pass` to a Node port arrives in Phase 7).
-    public func vhostStatic(domain: String, root: URL, port: Int = 80) -> String {
+    public func vhostStatic(domain: String, root: URL, port: Int = 80,
+                            accessLog: URL? = nil, errorLog: URL? = nil) -> String {
         """
         server {
             listen \(Self.listenAddress):\(port);
             server_name \(domain);
             root \(root.path);
-            index index.html index.htm;
+            index index.html index.htm;\(Self.logDirectives(access: accessLog, error: errorLog))
 
             location / {
                 try_files $uri $uri/ =404;

@@ -19,18 +19,22 @@ public struct SiteConfigGenerator {
     public func vhostText(for site: Site, port: Int) -> String {
         let root = URL(fileURLWithPath: site.docroot)
         let socket = site.type == .php ? paths.phpFpmSocket(site.phpVersion) : nil
+        let access = paths.siteAccessLog(site.domain)
+        let error = paths.siteErrorLog(site.domain)
 
         if site.secure, certPresent(for: site) {
             return tls.redirectVhost(domain: site.domain) + "\n\n"
                 + tls.secureVhost(domain: site.domain, root: root,
                                   certFile: paths.siteCert(site.domain), keyFile: paths.siteKey(site.domain),
-                                  phpFpmSocket: socket)
+                                  phpFpmSocket: socket, accessLog: access, errorLog: error)
         }
         switch site.type {
         case .php:
-            return writer.vhost(domain: site.domain, root: root, phpFpmSocket: socket!, port: port)
+            return writer.vhost(domain: site.domain, root: root, phpFpmSocket: socket!, port: port,
+                                accessLog: access, errorLog: error)
         case .staticSite, .node:
-            return writer.vhostStatic(domain: site.domain, root: root, port: port)
+            return writer.vhostStatic(domain: site.domain, root: root, port: port,
+                                      accessLog: access, errorLog: error)
         }
     }
 

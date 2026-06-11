@@ -11,6 +11,8 @@ public final class MailpitController: ManagedService, @unchecked Sendable {
 
     /// The Mailpit web UI URL — used by the health probe and by the Phase 8 viewer.
     public static let uiURL = URL(string: "http://127.0.0.1:8025/")!
+    /// Base URL for the Mailpit REST API (`/api/v1/...`) consumed by `MailpitClient` (Phase 8).
+    public static let apiBaseURL = URL(string: "http://127.0.0.1:8025/api/v1")!
 
     private let paths: AppSupportPaths
     private let runner: LaunchdServiceRunner

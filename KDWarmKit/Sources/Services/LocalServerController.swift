@@ -143,6 +143,7 @@ public final class LocalServerController: ObservableObject {
         let port = httpPort
         Task.detached(priority: .userInitiated) { [stager, self] in
             do {
+                LogRotator().rotateOversized(in: self.paths)   // keep dev logs bounded; rotate on start
                 try stager.stageIfNeeded()
                 let missing = try await self.applyConfiguration(sites: sites, port: port, startNginx: true)
                 await self.finish(missing: missing, error: nil)

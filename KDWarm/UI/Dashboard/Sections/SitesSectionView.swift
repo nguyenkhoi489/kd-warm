@@ -5,11 +5,14 @@ import KDWarmKit
 /// (replaces the Phase 2/3 manual `/etc/hosts` note). Observes the server (status), the registry
 /// (site list) and the DNS service so it re-renders on any change.
 struct SitesSectionView: View {
+    /// Opens the Logs view filtered to a site's log (set by a row's "Logs" action).
+    var onOpenLogs: (String?) -> Void = { _ in }
+
     @EnvironmentObject private var server: LocalServerController
     @EnvironmentObject private var dns: DNSAutomationService
 
     var body: some View {
-        SitesContent(server: server, registry: server.registry, dns: dns)
+        SitesContent(server: server, registry: server.registry, dns: dns, onOpenLogs: onOpenLogs)
     }
 }
 
@@ -17,6 +20,7 @@ private struct SitesContent: View {
     @ObservedObject var server: LocalServerController
     @ObservedObject var registry: SiteRegistry
     @ObservedObject var dns: DNSAutomationService
+    var onOpenLogs: (String?) -> Void
     @State private var showAddSheet = false
 
     var body: some View {
@@ -71,7 +75,8 @@ private struct SitesContent: View {
                         onRemove: { registry.remove(site) },
                         onEditDomain: { try registry.editDomain(site, to: $0) },
                         onSetVersion: { registry.setPHPVersion(site, to: $0) },
-                        onSetSecure: { server.setSiteSecure(site, $0) })
+                        onSetSecure: { server.setSiteSecure(site, $0) },
+                        onOpenLogs: { onOpenLogs("site-\(site.domain)-access") })
                     Divider()
                 }
             }

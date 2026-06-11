@@ -8,6 +8,8 @@ import KDWarmKit
 struct ServicesSectionView: View {
     /// Lets a banner CTA jump to another dashboard section (e.g. CA-untrusted → Settings).
     var onNavigate: (SidebarItem) -> Void = { _ in }
+    /// Opens the Logs view, optionally preselecting this service's log source.
+    var onOpenLogs: (String?) -> Void = { _ in }
 
     @EnvironmentObject private var services: ServiceManager
     @EnvironmentObject private var dns: DNSAutomationService
@@ -36,7 +38,7 @@ struct ServicesSectionView: View {
                             canToggle: snapshot.kind != .phpFpm,
                             onToggle: { services.toggle(snapshot.kind) },
                             onRestart: { services.restart(snapshot.kind) },
-                            onOpenLogs: { onNavigate(.logs) })
+                            onOpenLogs: { onOpenLogs(Self.logSourceID(for: snapshot.kind)) })
                         Divider()
                     }
                 }
@@ -59,6 +61,18 @@ struct ServicesSectionView: View {
 
     private var runningCount: Int {
         services.snapshots.filter { $0.status == .running }.count
+    }
+
+    /// Map a service to its primary log source id (nil = open Logs without a preselection).
+    private static func logSourceID(for kind: ServiceKind) -> String? {
+        switch kind {
+        case .nginx:    return "nginx-error"
+        case .mysql:    return "mysql"
+        case .postgres: return "postgres"
+        case .redis:    return "redis"
+        case .mailpit:  return "mailpit"
+        case .phpFpm, .dnsmasq: return nil
+        }
     }
 
     private var banners: [ServiceBanner] {

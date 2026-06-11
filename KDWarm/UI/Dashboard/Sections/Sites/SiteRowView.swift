@@ -13,6 +13,7 @@ struct SiteRowView: View {
     let onEditDomain: (String) throws -> Void
     let onSetVersion: (String) -> Void
     let onSetSecure: (Bool) -> Void
+    let onOpenLogs: () -> Void
 
     @State private var domainDraft: String
     @State private var domainError: String?
@@ -20,7 +21,7 @@ struct SiteRowView: View {
     init(site: Site, availableVersions: [String], canOpen: Bool,
          onOpen: @escaping () -> Void, onRemove: @escaping () -> Void,
          onEditDomain: @escaping (String) throws -> Void, onSetVersion: @escaping (String) -> Void,
-         onSetSecure: @escaping (Bool) -> Void) {
+         onSetSecure: @escaping (Bool) -> Void, onOpenLogs: @escaping () -> Void) {
         self.site = site
         self.availableVersions = availableVersions
         self.canOpen = canOpen
@@ -29,6 +30,7 @@ struct SiteRowView: View {
         self.onEditDomain = onEditDomain
         self.onSetVersion = onSetVersion
         self.onSetSecure = onSetSecure
+        self.onOpenLogs = onOpenLogs
         _domainDraft = State(initialValue: site.domain)
     }
 
@@ -67,6 +69,7 @@ struct SiteRowView: View {
                 Button("Open in Browser", action: onOpen).disabled(!canOpen)
                 Button("Reveal in Finder") { revealInFinder() }
                 Button("Open Terminal Here") { openTerminal() }
+                Button("Logs", action: onOpenLogs)
                 Divider()
                 Button("Remove Site", role: .destructive, action: onRemove)
             } label: {

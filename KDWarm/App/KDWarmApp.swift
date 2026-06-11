@@ -25,6 +25,7 @@ struct KDWarmApp: App {
                 .environmentObject(appDelegate.dns)
                 .environmentObject(appDelegate.services)
                 .environmentObject(appDelegate.runtimes)
+                .environmentObject(appDelegate.mail)
         }
         .defaultSize(width: 920, height: 600)
         .windowResizability(.contentMinSize)
@@ -58,6 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Runtime versions: bundled PHP (staged into runtimes/) + on-demand Node/Python/Go downloads.
     @MainActor lazy var runtimes = RuntimeManager()
+
+    /// Mailpit message store for the Mail catcher view (polls the local Mailpit REST API).
+    @MainActor lazy var mail = MailStore()
 
     /// Local root CA trust (mkcert) for HTTPS `*.test`.
     @MainActor lazy var caTrust = CATrustService(

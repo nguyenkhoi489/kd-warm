@@ -19,6 +19,11 @@ public struct PHPFPMPoolWriter {
                            user: String = NSUserName()) -> String {
         let socket = paths.phpFpmSocket(poolName).path
         let log = paths.phpFpmLog(poolName).path
+        // Route PHP mail() into the bundled Mailpit (SMTP sink on :1025) so dev mail is caught and
+        // readable in-app. PHP appends `-t -i`; mailpit's sendmail mode reads the message on stdin.
+        // The path is single-quoted: php-fpm runs sendmail_path via the shell and the app-support
+        // path contains a space ("Application Support").
+        let sendmail = "'\(paths.binary("mailpit").path)' sendmail -S 127.0.0.1:1025"
         return """
         [global]
         error_log = \(log)
@@ -41,6 +46,7 @@ public struct PHPFPMPoolWriter {
         catch_workers_output = yes
         php_admin_flag[log_errors] = on
         php_admin_value[error_log] = \(log)
+        php_admin_value[sendmail_path] = \(sendmail)
         """
     }
 

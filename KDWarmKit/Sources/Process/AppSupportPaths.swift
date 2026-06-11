@@ -55,7 +55,7 @@ public struct AppSupportPaths: Sendable {
     /// Every directory that `ensureDirectoryTree()` creates.
     public var allDirectories: [URL] {
         [root, bin, runtimes, config, nginxConfigDir, sitesEnabled, phpFpmConfigDir,
-         sitesConfigDir, caDir, certsDir, run, logs, sites, data, launchAgents]
+         sitesConfigDir, caDir, certsDir, run, logs, logsSites, sites, data, launchAgents]
     }
 
     // MARK: Per-service data / config / logs (databases + Mailpit)
@@ -128,6 +128,12 @@ public struct AppSupportPaths: Sendable {
     public var nginxPid: URL     { run.appendingPathComponent("nginx.pid") }
     public var nginxErrorLog: URL  { logs.appendingPathComponent("nginx-error.log") }
     public var nginxAccessLog: URL { logs.appendingPathComponent("nginx-access.log") }
+
+    /// Per-site nginx logs live under `logs/sites/<domain>.{access,error}.log` so the Logs viewer
+    /// can tail one site in isolation (the vhost writer emits these per server block).
+    public var logsSites: URL { logs.appendingPathComponent("sites", isDirectory: true) }
+    public func siteAccessLog(_ domain: String) -> URL { logsSites.appendingPathComponent("\(domain).access.log") }
+    public func siteErrorLog(_ domain: String) -> URL { logsSites.appendingPathComponent("\(domain).error.log") }
 
     public func vhost(_ name: String) -> URL {
         sitesEnabled.appendingPathComponent("\(name).conf")
