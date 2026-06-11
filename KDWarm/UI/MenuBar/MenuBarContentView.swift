@@ -1,0 +1,134 @@
+import SwiftUI
+import AppKit
+import KDWarmKit
+
+/// Menu-bar dropdown skeleton (design-guidelines §5.2, wireframe `menubar-dropdown`).
+/// Header · placeholder service rows · footer actions. All data is static sample data;
+/// real service state binds in Phase 6.
+struct MenuBarContentView: View {
+    @Environment(\.openWindow) private var openWindow
+    private let services = Service.sample
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            Divider().padding(.vertical, KDSpacing.space1)
+            servicesSection
+            Divider().padding(.vertical, KDSpacing.space1)
+            footer
+        }
+        .padding(KDSpacing.space2)
+        .frame(width: 324)
+    }
+
+    private var header: some View {
+        HStack(spacing: KDSpacing.space2) {
+            Image(systemName: "bolt.horizontal.circle")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.accentColor)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("KDWarm").font(KDFont.headline)
+                Text("v0.1.0 · all systems healthy")
+                    .font(KDFont.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Stop All") {}
+                .buttonStyle(.borderless)
+                .font(KDFont.footnote)
+                .disabled(true)
+        }
+        .padding(.horizontal, KDSpacing.space1)
+    }
+
+    private var servicesSection: some View {
+        VStack(alignment: .leading, spacing: KDSpacing.space1) {
+            Text("Services")
+                .font(KDFont.footnote)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, KDSpacing.space1)
+            ForEach(services) { service in
+                serviceRow(service)
+            }
+        }
+    }
+
+    private func serviceRow(_ service: Service) -> some View {
+        HStack(spacing: KDSpacing.space2) {
+            Image(systemName: service.symbolName)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+            Text(service.name).font(KDFont.body)
+            Spacer()
+            StatusPill(service.status, text: service.detail)
+            Toggle("", isOn: .constant(service.isOn))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .disabled(true)
+        }
+        .padding(.vertical, KDSpacing.space1)
+        .padding(.horizontal, KDSpacing.space1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(service.name), \(service.status.label), \(service.detail)")
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            footerButton("Open Dashboard…", systemImage: "rectangle.split.3x1", shortcut: "⌘D") {
+                AppActivationPolicy.activateRegular()
+                openWindow(id: DashboardWindow.windowID)
+            }
+            settingsFooterItem
+            footerButton("Quit KDWarm", systemImage: "power", shortcut: "⌘Q") {
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
+    /// Opening the `Settings` scene from an accessory menu-bar app is version-specific:
+    /// the legacy `showSettingsWindow:` selector was removed in macOS 14, so on 14+ we
+    /// use `SettingsLink` (with a pre-tap activation flip) and keep the selector only as
+    /// the macOS 13 fallback. Both promote to `.regular` so the window can take focus.
+    @ViewBuilder
+    private var settingsFooterItem: some View {
+        if #available(macOS 14.0, *) {
+            SettingsLink {
+                footerRowLabel("Settings…", systemImage: "gearshape", shortcut: "⌘,")
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded {
+                AppActivationPolicy.activateRegular()
+            })
+        } else {
+            footerButton("Settings…", systemImage: "gearshape", shortcut: "⌘,") {
+                AppActivationPolicy.activateRegular()
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+        }
+    }
+
+    private func footerButton(_ title: String,
+                              systemImage: String,
+                              shortcut: String,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            footerRowLabel(title, systemImage: systemImage, shortcut: shortcut)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func footerRowLabel(_ title: String,
+                                systemImage: String,
+                                shortcut: String) -> some View {
+        HStack(spacing: KDSpacing.space2) {
+            Image(systemName: systemImage).frame(width: 18).foregroundStyle(.secondary)
+            Text(title).font(KDFont.body)
+            Spacer()
+            Text(shortcut).font(KDFont.footnote).foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, KDSpacing.space1)
+        .padding(.horizontal, KDSpacing.space1)
+    }
+}
