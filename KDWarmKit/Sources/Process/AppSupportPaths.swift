@@ -27,13 +27,25 @@ public struct AppSupportPaths: Sendable {
     public var nginxConfigDir: URL   { config.appendingPathComponent("nginx", isDirectory: true) }
     public var sitesEnabled: URL     { nginxConfigDir.appendingPathComponent("sites-enabled", isDirectory: true) }
     public var phpFpmConfigDir: URL  { config.appendingPathComponent("php-fpm", isDirectory: true) }
+    /// Holds the persisted site registry (`sites.json`).
+    public var sitesConfigDir: URL   { config.appendingPathComponent("sites", isDirectory: true) }
     public var run: URL              { dir("run") }
     public var logs: URL             { dir("logs") }
     public var sites: URL            { dir("sites") }
 
+    /// Persisted registry of explicitly-added sites.
+    public var sitesRegistryFile: URL { sitesConfigDir.appendingPathComponent("sites.json") }
+
+    /// Default browse root for "Add Site" (`~/Sites/WWW`). Any folder is allowed; this is just
+    /// the suggested location.
+    public static var defaultSitesRoot: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Sites/WWW", isDirectory: true)
+    }
+
     /// Every directory that `ensureDirectoryTree()` creates.
     public var allDirectories: [URL] {
-        [root, bin, runtimes, config, nginxConfigDir, sitesEnabled, phpFpmConfigDir, run, logs, sites]
+        [root, bin, runtimes, config, nginxConfigDir, sitesEnabled, phpFpmConfigDir,
+         sitesConfigDir, run, logs, sites]
     }
 
     // MARK: Binaries (staged copies)

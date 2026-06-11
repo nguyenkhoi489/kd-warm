@@ -92,6 +92,28 @@ public struct NginxConfigWriter {
         """
     }
 
+    /// A static vhost (plain HTML / a Node app's build output): `try_files` only, NO fastcgi —
+    /// routing a non-PHP site through PHP-FPM yields 502/blank. Used for `.staticSite` and, for
+    /// now, `.node` (a real `proxy_pass` to a Node port arrives in Phase 7).
+    public func vhostStatic(domain: String, root: URL, port: Int = 80) -> String {
+        """
+        server {
+            listen \(Self.listenAddress):\(port);
+            server_name \(domain);
+            root \(root.path);
+            index index.html index.htm;
+
+            location / {
+                try_files $uri $uri/ =404;
+            }
+
+            location ~ /\\.(?!well-known).* {
+                deny all;
+            }
+        }
+        """
+    }
+
     public enum ConfigError: LocalizedError {
         case invalidDomain(String)
         case invalidPath(String)
@@ -103,11 +125,13 @@ public struct NginxConfigWriter {
         }
     }
 
-    /// A domain must be a bare hostname (letters, digits, dot, hyphen). This blocks nginx
-    /// directive-injection once Phase 3 lets the user type the domain — `demo.test;\n}` and
-    /// similar can't break out of `server_name`/`listen`.
+    /// A domain must be dot-separated RFC-1123 labels (each starts/ends alphanumeric, may contain
+    /// hyphens). This blocks nginx directive-injection once Phase 3 lets the user type the domain
+    /// (`demo.test;\n}` can't break out of `server_name`/`listen`) AND rejects shapes nginx itself
+    /// would refuse — leading/trailing dots, `..`, leading/trailing hyphens.
     public static func isValidDomain(_ domain: String) -> Bool {
-        !domain.isEmpty && domain.range(of: "^[A-Za-z0-9.-]+$", options: .regularExpression) != nil
+        let label = "[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?"
+        return domain.range(of: "^\(label)(\\.\(label))+$", options: .regularExpression) != nil
     }
 
     /// Reject paths that could break out of the `root` directive (newlines, `;`, braces).

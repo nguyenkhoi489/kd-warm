@@ -46,7 +46,7 @@ public struct PHPFPMPoolWriter {
 
     /// Write the pool config to `paths.phpFpmPool(poolName)`.
     @discardableResult
-    public func writeDemo(paths: AppSupportPaths, poolName: String) throws -> URL {
+    public func write(paths: AppSupportPaths, poolName: String) throws -> URL {
         let url = paths.phpFpmPool(poolName)
         try poolConfig(paths: paths, poolName: poolName)
             .write(to: url, atomically: true, encoding: .utf8)

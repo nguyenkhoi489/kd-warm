@@ -1,84 +1,90 @@
 import SwiftUI
-import AppKit
 import KDWarmKit
 
-/// Phase 2 ships a single hardcoded demo site. Phase 3 generalises this into a Site Manager
-/// with manual registration. The view surfaces the live server state, an Open action, and
-/// the TEMPORARY `/etc/hosts` step (automatic DNS arrives in Phase 4).
+/// Sites dashboard: the list of registered sites + Add/Remove and the temporary `/etc/hosts`
+/// note (automatic DNS arrives in Phase 4). Observes both the server (status) and the registry
+/// (the site list) so it re-renders on either change.
 struct SitesSectionView: View {
     @EnvironmentObject private var server: LocalServerController
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: KDSpacing.space4) {
-                demoSiteCard
-                hostsNote
-            }
-            .padding(KDSpacing.space4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .navigationTitle("Sites")
+        SitesContent(server: server, registry: server.registry)
     }
+}
 
-    private var demoSiteCard: some View {
-        VStack(alignment: .leading, spacing: KDSpacing.space2) {
-            HStack(spacing: KDSpacing.space2) {
-                Image(systemName: "globe").foregroundStyle(Color.accentColor)
-                Text(server.demoDomain).font(KDFont.headline)
-                StatusPill(server.nginxStatus, text: server.isRunning ? "live" : "offline")
-                Spacer()
-                Button(server.isRunning ? "Stop" : "Start") { server.toggle() }
-                    .disabled(server.isBusy)
-                Button("Open") { openSite() }
-                    .disabled(!server.isRunning)
-                    .keyboardShortcut(.defaultAction)
+private struct SitesContent: View {
+    @ObservedObject var server: LocalServerController
+    @ObservedObject var registry: SiteRegistry
+    @State private var showAddSheet = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            if registry.sites.isEmpty {
+                EmptyStateView(
+                    symbol: "globe",
+                    title: "No sites yet",
+                    message: "Add a folder under ~/Sites/WWW to serve it at <name>.test.",
+                    actionTitle: "Add Site…"
+                ) { showAddSheet = true }
+            } else {
+                list
             }
-            Text(server.siteRoot.path)
-                .font(KDFont.footnote)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
             if let error = server.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(KDFont.footnote)
-                    .foregroundStyle(Color.KDStatus.error)
+                    .foregroundStyle(Color.KDStatus.warning)
+                    .padding(KDSpacing.space2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            hostsHint
         }
-        .padding(KDSpacing.space3)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
+        .navigationTitle("Sites")
+        .sheet(isPresented: $showAddSheet) {
+            AddSiteSheet(registry: registry, availableVersions: server.availableVersions)
+        }
     }
 
-    private var hostsNote: some View {
-        VStack(alignment: .leading, spacing: KDSpacing.space1) {
-            Label("Temporary DNS setup", systemImage: "info.circle")
-                .font(KDFont.subheadline)
-            Text("Automatic `.test` DNS arrives in Phase 4. For now, add this line to `/etc/hosts` so the browser can resolve the demo domain:")
-                .font(KDFont.footnote)
-                .foregroundStyle(.secondary)
-            HStack {
-                Text("127.0.0.1 \(server.demoDomain)")
-                    .font(.system(.footnote, design: .monospaced))
-                    .textSelection(.enabled)
-                Spacer()
-                Button("Copy") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("127.0.0.1 \(server.demoDomain)", forType: .string)
+    private var toolbar: some View {
+        HStack(spacing: KDSpacing.space2) {
+            Button(server.isRunning ? "Stop Server" : "Start Server") { server.toggle() }
+                .disabled(server.isBusy)
+            StatusPill(server.nginxStatus, text: server.isRunning ? "nginx" : "offline")
+            Spacer()
+            Button { showAddSheet = true } label: { Label("Add Site", systemImage: "plus") }
+        }
+        .padding(KDSpacing.space2)
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(registry.sites) { site in
+                    SiteRowView(
+                        site: site,
+                        availableVersions: server.availableVersions,
+                        canOpen: server.isRunning,
+                        onOpen: { open(site) },
+                        onRemove: { registry.remove(site) },
+                        onEditDomain: { try registry.editDomain(site, to: $0) },
+                        onSetVersion: { registry.setPHPVersion(site, to: $0) })
+                    Divider()
                 }
-                .buttonStyle(.borderless)
-                .font(KDFont.footnote)
             }
-            .padding(KDSpacing.space2)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
-            Text("Run: echo \"127.0.0.1 \(server.demoDomain)\" | sudo tee -a /etc/hosts")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .textSelection(.enabled)
         }
-        .padding(KDSpacing.space3)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.04)))
     }
 
-    private func openSite() {
-        guard let url = URL(string: "http://\(server.demoDomain)/") else { return }
+    private var hostsHint: some View {
+        Text("Until Phase 4 automates DNS, each site needs a line in /etc/hosts: `127.0.0.1 <domain>`.")
+            .font(KDFont.footnote)
+            .foregroundStyle(.secondary)
+            .padding(KDSpacing.space2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func open(_ site: Site) {
+        guard let url = URL(string: "http://\(site.domain)/") else { return }
         NSWorkspace.shared.open(url)
     }
 }
