@@ -7,21 +7,38 @@ import Foundation
 public struct SiteConfigGenerator {
     private let paths: AppSupportPaths
     private let writer = NginxConfigWriter()
+    private let tls = NginxTLSVhostWriter()
 
     public init(paths: AppSupportPaths) {
         self.paths = paths
     }
 
-    /// vhost text for a site, by type. PHP routes to `run/php-fpm-<version>.sock`.
+    /// vhost text for a site, by type + secure flag. A secured site (with a minted leaf present)
+    /// gets an HTTPS server (`0.0.0.0:443`) + an `:80 → :443` redirect; otherwise a plain http server.
+    /// PHP routes to `run/php-fpm-<version>.sock`.
     public func vhostText(for site: Site, port: Int) -> String {
         let root = URL(fileURLWithPath: site.docroot)
+        let socket = site.type == .php ? paths.phpFpmSocket(site.phpVersion) : nil
+
+        if site.secure, certPresent(for: site) {
+            return tls.redirectVhost(domain: site.domain) + "\n\n"
+                + tls.secureVhost(domain: site.domain, root: root,
+                                  certFile: paths.siteCert(site.domain), keyFile: paths.siteKey(site.domain),
+                                  phpFpmSocket: socket)
+        }
         switch site.type {
         case .php:
-            return writer.vhost(domain: site.domain, root: root,
-                                phpFpmSocket: paths.phpFpmSocket(site.phpVersion), port: port)
+            return writer.vhost(domain: site.domain, root: root, phpFpmSocket: socket!, port: port)
         case .staticSite, .node:
             return writer.vhostStatic(domain: site.domain, root: root, port: port)
         }
+    }
+
+    /// A secured site needs both leaf files present to emit an https vhost (else fall back to http).
+    private func certPresent(for site: Site) -> Bool {
+        let fm = FileManager.default
+        return fm.fileExists(atPath: paths.siteCert(site.domain).path)
+            && fm.fileExists(atPath: paths.siteKey(site.domain).path)
     }
 
     /// Write the master config + one vhost per valid site, and delete vhosts for sites no longer

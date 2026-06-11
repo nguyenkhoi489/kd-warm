@@ -83,6 +83,12 @@ public final class SiteRegistry: ObservableObject {
         update(site.id) { $0.phpVersion = version }
     }
 
+    /// Flip a site's secure (HTTPS) flag. Cert minting + trust is handled by the orchestrator
+    /// BEFORE this is set, so the config generator sees the leaf when it regenerates.
+    public func setSecure(_ site: Site, _ secure: Bool) {
+        update(site.id) { $0.secure = secure }
+    }
+
     /// Re-inspect a registered folder (docroot/type may have changed) without touching its
     /// editable domain or PHP version. Used by the folder watcher. No-op (no persist, no reload)
     /// when nothing changed, so editor save-storms don't churn the registry.

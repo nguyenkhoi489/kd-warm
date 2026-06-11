@@ -12,13 +12,15 @@ struct SiteRowView: View {
     let onRemove: () -> Void
     let onEditDomain: (String) throws -> Void
     let onSetVersion: (String) -> Void
+    let onSetSecure: (Bool) -> Void
 
     @State private var domainDraft: String
     @State private var domainError: String?
 
     init(site: Site, availableVersions: [String], canOpen: Bool,
          onOpen: @escaping () -> Void, onRemove: @escaping () -> Void,
-         onEditDomain: @escaping (String) throws -> Void, onSetVersion: @escaping (String) -> Void) {
+         onEditDomain: @escaping (String) throws -> Void, onSetVersion: @escaping (String) -> Void,
+         onSetSecure: @escaping (Bool) -> Void) {
         self.site = site
         self.availableVersions = availableVersions
         self.canOpen = canOpen
@@ -26,6 +28,7 @@ struct SiteRowView: View {
         self.onRemove = onRemove
         self.onEditDomain = onEditDomain
         self.onSetVersion = onSetVersion
+        self.onSetSecure = onSetSecure
         _domainDraft = State(initialValue: site.domain)
     }
 
@@ -51,9 +54,12 @@ struct SiteRowView: View {
 
             if site.type == .php { phpVersionMenu }
 
-            Toggle("Secure", isOn: .constant(false))
-                .toggleStyle(.switch).controlSize(.mini).labelsHidden().disabled(true)
-                .help("HTTPS arrives in Phase 5")
+            Image(systemName: site.secure ? "lock.fill" : "lock.open")
+                .font(.footnote)
+                .foregroundStyle(site.secure ? Color.KDStatus.running : .secondary)
+            Toggle("Secure", isOn: Binding(get: { site.secure }, set: onSetSecure))
+                .toggleStyle(.switch).controlSize(.mini).labelsHidden()
+                .help("Serve over HTTPS with a locally-trusted certificate")
 
             Button("Open", action: onOpen).disabled(!canOpen)
 

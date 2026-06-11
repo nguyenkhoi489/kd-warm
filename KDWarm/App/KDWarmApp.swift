@@ -27,6 +27,7 @@ struct KDWarmApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(appDelegate.caTrust)
         }
     }
 }
@@ -42,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `.test` DNS automation (helper when signed; sudo fallback otherwise).
     @MainActor lazy var dns = DNSAutomationService(
         bundledDnsmasq: Self.bundleBinDir.appendingPathComponent("dnsmasq"))
+
+    /// Local root CA trust (mkcert) for HTTPS `*.test`.
+    @MainActor lazy var caTrust = CATrustService(
+        paths: AppSupportPaths(), mkcertBinary: Self.bundleBinDir.appendingPathComponent("mkcert"))
 
     private static var bundleBinDir: URL {
         Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true)

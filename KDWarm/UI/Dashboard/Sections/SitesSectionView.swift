@@ -70,7 +70,8 @@ private struct SitesContent: View {
                         onOpen: { open(site) },
                         onRemove: { registry.remove(site) },
                         onEditDomain: { try registry.editDomain(site, to: $0) },
-                        onSetVersion: { registry.setPHPVersion(site, to: $0) })
+                        onSetVersion: { registry.setPHPVersion(site, to: $0) },
+                        onSetSecure: { server.setSiteSecure(site, $0) })
                     Divider()
                 }
             }
@@ -78,7 +79,8 @@ private struct SitesContent: View {
     }
 
     private func open(_ site: Site) {
-        guard let url = URL(string: "http://\(site.domain)/") else { return }
+        let scheme = site.secure ? "https" : "http"
+        guard let url = URL(string: "\(scheme)://\(site.domain)/") else { return }
         NSWorkspace.shared.open(url)
     }
 }

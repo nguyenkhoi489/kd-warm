@@ -1,0 +1,84 @@
+import Foundation
+import Combine
+import CryptoKit
+
+/// App-side orchestration of the local root CA: generate (via mkcert), install into the trust
+/// stores, and query trust state. On the dev build the live path is `mkcert -install` (it
+/// self-elevates for the System Keychain and writes Firefox/NSS when present). The signed Phase 9
+/// path routes the System-Keychain install through the helper (`installRootCA`, public cert only);
+/// the helper surface is already in place.
+@MainActor
+public final class CATrustService: ObservableObject {
+    public enum Status: Equatable, Sendable {
+        case notInstalled        // no CA generated yet
+        case untrusted           // CA exists on disk but not trusted in the System Keychain
+        case trusted             // CA present in the System Keychain
+    }
+
+    @Published public private(set) var status: Status = .notInstalled
+    @Published public private(set) var isBusy = false
+    @Published public private(set) var lastError: String?
+
+    public let usesHelper = HelperIdentity.hasSigningIdentity
+
+    nonisolated public let runner: MkcertRunner
+    nonisolated private let paths: AppSupportPaths
+
+    public init(paths: AppSupportPaths, mkcertBinary: URL) {
+        self.paths = paths
+        self.runner = MkcertRunner(mkcert: mkcertBinary, caroot: paths.caDir)
+        refresh()
+    }
+
+    public var isTrusted: Bool { status == .trusted }
+
+    public func refresh() {
+        guard runner.caExists else { status = .notInstalled; return }
+        status = Self.isTrustedInSystemKeychain(caCert: paths.caRootCert) ? .trusted : .untrusted
+    }
+
+    /// Generate (if needed) + install the CA into the trust stores. Idempotent.
+    public func install() { run { try self.runner.install() } }
+
+    /// Remove the CA's trust (browsers warn again). Leaves CA material on disk for cheap re-trust.
+    public func untrust() { run { try self.runner.uninstall() } }
+
+    /// Ensure the CA exists AND is trusted — used before minting the first secured site's leaf.
+    public func ensureTrusted() throws {
+        if !isTrusted { try runner.install() }
+    }
+
+    private func run(_ work: @escaping @Sendable () throws -> Void) {
+        guard !isBusy else { return }
+        isBusy = true; lastError = nil
+        Task.detached(priority: .userInitiated) {
+            var failure: String?
+            do { try work() } catch { failure = error.localizedDescription }
+            await MainActor.run {
+                self.isBusy = false
+                if let failure { self.lastError = failure }
+                self.refresh()
+            }
+        }
+    }
+
+    // MARK: - Trust query
+
+    /// True if the CA cert's SHA-1 appears among the System Keychain's certificates.
+    nonisolated static func isTrustedInSystemKeychain(caCert: URL) -> Bool {
+        guard let pem = try? Data(contentsOf: caCert),
+              let der = CertMinter.pemToDER(pem) else { return false }
+        let sha1 = Insecure.SHA1.hash(data: der).map { String(format: "%02X", $0) }.joined()
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        proc.arguments = ["find-certificate", "-a", "-Z", "/Library/Keychains/System.keychain"]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = FileHandle.nullDevice
+        do { try proc.run() } catch { return false }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        proc.waitUntilExit()
+        let out = String(data: data, encoding: .utf8) ?? ""
+        return out.uppercased().contains(sha1)
+    }
+}

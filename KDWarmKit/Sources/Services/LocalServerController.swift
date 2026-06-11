@@ -27,6 +27,8 @@ public final class LocalServerController: ObservableObject {
     nonisolated private let stager: BinaryStager
     nonisolated private let preflight = PortPreflight()
     nonisolated private let watcher = RegisteredSiteWatcher()
+    nonisolated private let mkcert: MkcertRunner
+    nonisolated private let certMinter: CertMinter
     private var didSeed = false
     private var pendingReconcile = false
 
@@ -37,6 +39,8 @@ public final class LocalServerController: ObservableObject {
         self.pools = PHPFPMPoolManager(paths: paths)
         self.generator = SiteConfigGenerator(paths: paths)
         self.stager = BinaryStager(bundleBinDir: bundleBinDir, paths: paths)
+        self.mkcert = MkcertRunner(mkcert: paths.mkcertBinary, caroot: paths.caDir)
+        self.certMinter = CertMinter(paths: paths, runner: MkcertRunner(mkcert: paths.mkcertBinary, caroot: paths.caDir))
 
         nginx.onExit = { [weak self] state in
             Task { @MainActor in self?.handleUnexpectedExit("Nginx", state) }
@@ -59,6 +63,33 @@ public final class LocalServerController: ObservableObject {
     }
 
     public func toggle() { isRunning ? stop() : start() }
+
+    /// Flip a site between http and https. Securing mints a leaf (ensuring the CA is trusted first,
+    /// one GUI prompt), then sets the flag so the reconcile regenerates an https vhost + reloads.
+    /// Un-securing keeps the cert (cheap re-enable) and regenerates as plain http.
+    public func setSiteSecure(_ site: Site, _ secure: Bool) {
+        guard !isBusy else { return }
+        guard secure else { registry.setSecure(site, false); return }
+
+        isBusy = true; lastError = nil
+        let mkcert = self.mkcert, minter = self.certMinter, domain = site.domain
+        Task.detached(priority: .userInitiated) {
+            var failure: String?
+            do {
+                if !CATrustService.isTrustedInSystemKeychain(caCert: mkcert.caroot.appendingPathComponent("rootCA.pem")) {
+                    try mkcert.install()        // generate + trust the CA (idempotent; prompts once)
+                }
+                try minter.mint(name: domain, domain: domain)
+            } catch {
+                failure = error.localizedDescription
+            }
+            await MainActor.run {
+                self.isBusy = false
+                if let failure { self.lastError = failure }
+                else { self.registry.setSecure(site, true) }   // → onRegistryChanged → reconcile
+            }
+        }
+    }
 
     public func start() {
         guard !isBusy, !isRunning else { return }
@@ -153,6 +184,7 @@ public final class LocalServerController: ObservableObject {
         }
         recomputeStatus()
         refreshWatches()
+        certMinter.pruneOrphans(keeping: Set(registry.sites.map(\.domain)))   // drop removed sites' leaves
         if pendingReconcile { pendingReconcile = false; reconcile() }
     }
 

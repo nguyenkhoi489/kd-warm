@@ -24,6 +24,19 @@ import Foundation
 
     /// Helper bundle version — used to reconcile after an app/helper update.
     func helperVersion(reply: @escaping (String) -> Void)
+
+    // MARK: CA trust (Phase 5) — the helper accepts ONLY the PUBLIC root cert bytes and performs a
+    // fixed System-Keychain trust operation. It never receives or stores the CA private key, and
+    // there is no arbitrary-path/keychain endpoint. This is the entire privileged surface — nothing
+    // beyond DNS + CA is ever added.
+
+    /// Install the given PUBLIC root cert as a trusted root in the System Keychain.
+    func installRootCA(pemData: Data, reply: @escaping (Bool, String?) -> Void)
+
+    /// Remove a SPECIFIC root CA from the System Keychain, identified by its SHA-1 fingerprint
+    /// (hex, no separators). Exact-match by hash — never a name prefix — so a co-resident mkcert
+    /// CA (the user's own) is never deleted by mistake.
+    func removeRootCA(certSHA1: String, reply: @escaping (Bool, String?) -> Void)
 }
 
 /// App-side view of the helper's DNS state, rebuilt from the `dnsStatus` reply.

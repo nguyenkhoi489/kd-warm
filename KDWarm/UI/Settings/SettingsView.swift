@@ -4,14 +4,18 @@ import KDWarmKit
 /// Settings scene placeholder (design-guidelines §10): `TabView` of `Form`s. Real
 /// preference bindings land alongside the subsystems they configure in later phases.
 struct SettingsView: View {
+    @EnvironmentObject private var caTrust: CATrustService
+
     var body: some View {
         TabView {
             generalTab
                 .tabItem { Label("General", systemImage: "gearshape") }
             servicesTab
                 .tabItem { Label("Services", systemImage: "server.rack") }
+            TLSSettingsView(caTrust: caTrust)
+                .tabItem { Label("TLS", systemImage: "lock.shield") }
         }
-        .frame(width: 480, height: 320)
+        .frame(width: 480, height: 360)
     }
 
     private var generalTab: some View {

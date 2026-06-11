@@ -29,6 +29,10 @@ public struct AppSupportPaths: Sendable {
     public var phpFpmConfigDir: URL  { config.appendingPathComponent("php-fpm", isDirectory: true) }
     /// Holds the persisted site registry (`sites.json`).
     public var sitesConfigDir: URL   { config.appendingPathComponent("sites", isDirectory: true) }
+    /// mkcert CAROOT — the local root CA material (key is 600, never leaves this dir).
+    public var caDir: URL            { config.appendingPathComponent("ca", isDirectory: true) }
+    /// Per-site TLS leaf certs (`certs/<name>/{cert,key}.pem`).
+    public var certsDir: URL         { config.appendingPathComponent("certs", isDirectory: true) }
     public var run: URL              { dir("run") }
     public var logs: URL             { dir("logs") }
     public var sites: URL            { dir("sites") }
@@ -45,7 +49,7 @@ public struct AppSupportPaths: Sendable {
     /// Every directory that `ensureDirectoryTree()` creates.
     public var allDirectories: [URL] {
         [root, bin, runtimes, config, nginxConfigDir, sitesEnabled, phpFpmConfigDir,
-         sitesConfigDir, run, logs, sites]
+         sitesConfigDir, caDir, certsDir, run, logs, sites]
     }
 
     // MARK: Binaries (staged copies)
@@ -53,6 +57,15 @@ public struct AppSupportPaths: Sendable {
     public var nginxBinary: URL  { bin.appendingPathComponent("nginx") }
     public var phpBinary: URL    { bin.appendingPathComponent("php") }
     public var phpFpmBinary: URL { bin.appendingPathComponent("php-fpm") }
+    public var mkcertBinary: URL { bin.appendingPathComponent("mkcert") }
+
+    // MARK: TLS material
+
+    public var caRootCert: URL { caDir.appendingPathComponent("rootCA.pem") }
+    public var caRootKey: URL  { caDir.appendingPathComponent("rootCA-key.pem") }
+    public func siteCertDir(_ name: String) -> URL { certsDir.appendingPathComponent(name, isDirectory: true) }
+    public func siteCert(_ name: String) -> URL { siteCertDir(name).appendingPathComponent("cert.pem") }
+    public func siteKey(_ name: String) -> URL { siteCertDir(name).appendingPathComponent("key.pem") }
 
     // MARK: Well-known files
 

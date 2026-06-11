@@ -9,6 +9,7 @@ let helperBundleVersion = "0.1.0"
 /// The exported XPC object — thin delegation to `HelperDNSManager`. The whole privileged surface.
 final class HelperService: NSObject, HelperXPCProtocol {
     private let dns = HelperDNSManager()
+    private let ca = HelperCAManager()
 
     func ping(reply: @escaping (String) -> Void) { reply(helperBundleVersion) }
     func helperVersion(reply: @escaping (String) -> Void) { reply(helperBundleVersion) }
@@ -24,6 +25,13 @@ final class HelperService: NSObject, HelperXPCProtocol {
     }
     func dnsStatus(reply: @escaping (Bool, Bool, String?) -> Void) {
         let s = dns.status(); reply(s.resolverPresent, s.dnsmasqRunning, s.conflict)
+    }
+
+    func installRootCA(pemData: Data, reply: @escaping (Bool, String?) -> Void) {
+        let r = ca.installRootCA(pemData: pemData); reply(r.0, r.1)
+    }
+    func removeRootCA(certSHA1: String, reply: @escaping (Bool, String?) -> Void) {
+        let r = ca.removeRootCA(certSHA1: certSHA1); reply(r.0, r.1)
     }
 }
 
