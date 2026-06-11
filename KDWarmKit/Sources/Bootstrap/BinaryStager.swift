@@ -25,7 +25,9 @@ public struct BinaryStager {
     }
 
     /// The binaries this phase stages. Extended as later phases add runtimes.
-    public static let binaryNames = ["nginx", "php", "php-fpm"]
+    /// `dnsmasq` is bundled for DNS automation; the sudo-fallback / helper copies it to a
+    /// root-owned location, but it is staged into user app-support too for signature verification.
+    public static let binaryNames = ["nginx", "php", "php-fpm", "dnsmasq"]
 
     private let bundleBinDir: URL
     private let paths: AppSupportPaths

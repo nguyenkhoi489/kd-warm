@@ -71,12 +71,20 @@ targets:
         COMBINE_HIDPI_IMAGES: "YES"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
 
-  # Privileged-helper stub. Idle now; wired as an SMAppService daemon in Phase 4.
+  # Privileged helper (root). XPC DNS surface. SMAppService daemon layout in place; live
+  # registration gated on Developer ID signing (Phase 9). Compiles the SHARED XPC + DNS files
+  # directly (separate process from the app → no @objc-protocol clash) so identity/requirement
+  # constants are single-sourced and can't drift.
   KDWarmHelper:
     type: tool
     platform: macOS
     sources:
       - path: KDWarmHelper
+        excludes:
+          - "com.kdwarm.helper.plist"   # embedded in the app bundle, not compiled into the tool
+      - path: KDWarmKit/Sources/XPC/HelperXPCProtocol.swift
+      - path: KDWarmKit/Sources/XPC/HelperIdentityConstants.swift
+      - path: KDWarmKit/Sources/DNS/DNSConstants.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kdwarm.helper

@@ -1,20 +1,22 @@
 import SwiftUI
 import KDWarmKit
 
-/// Sites dashboard: the list of registered sites + Add/Remove and the temporary `/etc/hosts`
-/// note (automatic DNS arrives in Phase 4). Observes both the server (status) and the registry
-/// (the site list) so it re-renders on either change.
+/// Sites dashboard: the list of registered sites + Add/Remove + the DNS automation bar
+/// (replaces the Phase 2/3 manual `/etc/hosts` note). Observes the server (status), the registry
+/// (site list) and the DNS service so it re-renders on any change.
 struct SitesSectionView: View {
     @EnvironmentObject private var server: LocalServerController
+    @EnvironmentObject private var dns: DNSAutomationService
 
     var body: some View {
-        SitesContent(server: server, registry: server.registry)
+        SitesContent(server: server, registry: server.registry, dns: dns)
     }
 }
 
 private struct SitesContent: View {
     @ObservedObject var server: LocalServerController
     @ObservedObject var registry: SiteRegistry
+    @ObservedObject var dns: DNSAutomationService
     @State private var showAddSheet = false
 
     var body: some View {
@@ -38,7 +40,7 @@ private struct SitesContent: View {
                     .padding(KDSpacing.space2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            hostsHint
+            DNSStatusBar(dns: dns)
         }
         .navigationTitle("Sites")
         .sheet(isPresented: $showAddSheet) {
@@ -73,14 +75,6 @@ private struct SitesContent: View {
                 }
             }
         }
-    }
-
-    private var hostsHint: some View {
-        Text("Until Phase 4 automates DNS, each site needs a line in /etc/hosts: `127.0.0.1 <domain>`.")
-            .font(KDFont.footnote)
-            .foregroundStyle(.secondary)
-            .padding(KDSpacing.space2)
-            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func open(_ site: Site) {

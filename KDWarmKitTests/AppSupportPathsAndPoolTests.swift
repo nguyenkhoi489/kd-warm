@@ -42,6 +42,6 @@ final class AppSupportPathsAndPoolTests: XCTestCase {
     }
 
     func testBinaryStagerListsExpectedBinaries() {
-        XCTAssertEqual(Set(BinaryStager.binaryNames), ["nginx", "php", "php-fpm"])
+        XCTAssertEqual(Set(BinaryStager.binaryNames), ["nginx", "php", "php-fpm", "dnsmasq"])
     }
 }
