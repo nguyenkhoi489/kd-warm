@@ -92,6 +92,12 @@ public struct RuntimeCatalog: Sendable {
     /// and refreshed as upstream releases move; a stale URL surfaces as a download failure (retryable).
     /// Ruby/Java have no entries yet (shown as on-demand with nothing to install until added).
     public static let manifest: [RuntimeRelease] = [
+        // Self-built, relocatable static PHP (php.net ships source only — no upstream macOS binary).
+        // Hosted on the project's GitHub Releases. PHP 8.4 is BUNDLED (staged from the DMG), so it is
+        // intentionally NOT in this download manifest — never double-source a version (bundle + manifest).
+        RuntimeRelease(language: .php, version: "8.3",
+                       url: "https://github.com/nguyenkhoi489/kd-warm/releases/download/binaries-v1/php-8.3-arm64.tar.gz",
+                       sha256: "23b48362a1ebeb343f6dca0b0df396cc4725d7130586cb977d59ac6aed644cf6"),
         RuntimeRelease(language: .go, version: "1.26.4",
                        url: "https://go.dev/dl/go1.26.4.darwin-arm64.tar.gz",
                        sha256: "b62ad2b6d7d2464f12a5bcad7ff47f19d08325773b5efd21610e445a05a9bf53"),
