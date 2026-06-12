@@ -182,11 +182,14 @@ public final class LocalServerController: ObservableObject {
         }
     }
 
-    /// Called from `applicationWillTerminate`. Services are launchd-managed and PERSIST across app
-    /// quit (Herd's model) — so we do NOT stop nginx/php-fpm here; we only stop the in-process folder
-    /// watcher. Bringing everything down is the explicit "Stop all" action, not a side effect of quit.
+    /// Called from `applicationWillTerminate`. Stop EVERY KDWarm launchd service (nginx, php-fpm
+    /// pools, databases, Mailpit) so nothing is left running once the app quits, plus the in-process
+    /// folder watcher. `bootoutAll` is synchronous — one `launchctl bootout` per `com.kdwarm.*` job —
+    /// so it finishes inside the synchronous terminate handler; SIGTERM lets mysqld shut down cleanly.
+    /// (The root-owned dnsmasq/DNS helper is in a separate domain and intentionally persists.)
     public func shutdownForQuit() {
         watcher.stop()
+        agents.bootoutAll()
     }
 
     // MARK: - Reconcile
