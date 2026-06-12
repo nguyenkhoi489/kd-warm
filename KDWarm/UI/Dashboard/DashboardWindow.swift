@@ -30,10 +30,25 @@ struct DashboardWindow: View {
                 Label(item.title, systemImage: item.symbol).tag(item)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
+            .safeAreaInset(edge: .bottom) { sidebarCredit }
         } detail: {
             detail(for: selection ?? .sites)
         }
         .frame(minWidth: 720, minHeight: 460)
+    }
+
+    /// Author credit pinned to the bottom of the sidebar (below Settings). The name opens the site.
+    private var sidebarCredit: some View {
+        VStack(spacing: 1) {
+            Divider().padding(.bottom, 4)
+            Link(destination: URL(string: "https://nguyenkhoi.dev")!) {
+                Text("Nguyên Khôi").font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(.plain).foregroundStyle(.secondary)
+            Text("nguyenkhoi.dev").font(.system(size: 10)).foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, KDSpacing.space2)
     }
 
     @ViewBuilder
