@@ -17,6 +17,9 @@ public final class LocalServerController: ObservableObject {
 
     public let httpPort = 80
     public let registry: SiteRegistry
+    /// The live dev TLD (configurable, Phase 5), injected from `AppPreferences` at launch. Used for
+    /// the demo-site seed domain + the cert SAN guard; the registry validates against the same value.
+    nonisolated private let tld: String
 
     // These collaborators are Sendable and used from the off-main `applyConfiguration` work, so
     // they are explicitly nonisolated (avoids a Swift 6 main-actor isolation error).
@@ -33,11 +36,14 @@ public final class LocalServerController: ObservableObject {
     private var didSeed = false
     private var pendingReconcile = false
 
-    public init(bundleBinDir: URL, paths: AppSupportPaths = AppSupportPaths()) {
+    public init(bundleBinDir: URL, paths: AppSupportPaths = AppSupportPaths(),
+                tld: String = AppPreferences.defaultTLD) {
         self.paths = paths
+        self.tld = tld
         self.agents = LaunchAgentManager(paths: paths)
         self.registry = SiteRegistry(
             storeURL: paths.sitesRegistryFile,
+            tld: tld,
             installedPHP: { BundledPHP.availableVersions(php: paths.phpRuntimesRoot) })
         self.nginx = NginxController(paths: paths, agents: agents)
         self.pools = PHPFPMPoolManager(paths: paths, agents: agents)
@@ -115,14 +121,14 @@ public final class LocalServerController: ObservableObject {
 
         isBusy = true; lastError = nil
         let mkcert = self.mkcert, minter = self.certMinter, domain = site.domain
-        let caCert = self.paths.caRootCert
+        let caCert = self.paths.caRootCert, tld = self.tld
         Task.detached(priority: .userInitiated) {
             var failure: String?
             do {
                 if !CATrustService.isTrustedInSystemKeychain(caCert: caCert) {
                     try mkcert.install()        // generate + trust the CA (idempotent; prompts once)
                 }
-                try minter.mint(name: domain, domain: domain)
+                try minter.mint(name: domain, domain: domain, tld: tld)
             } catch {
                 failure = error.localizedDescription
             }
@@ -259,7 +265,7 @@ public final class LocalServerController: ObservableObject {
         guard !didSeed, registry.sites.isEmpty else { didSeed = true; return }
         didSeed = true
         let demo = AppSupportPaths.defaultSitesRoot.appendingPathComponent("demo", isDirectory: true)
-        try? Self.provisionSampleSite(at: demo.appendingPathComponent("public", isDirectory: true), domain: "demo.test")
+        try? Self.provisionSampleSite(at: demo.appendingPathComponent("public", isDirectory: true), domain: "demo.\(tld)")
         try? registry.add(folder: demo)
     }
 
