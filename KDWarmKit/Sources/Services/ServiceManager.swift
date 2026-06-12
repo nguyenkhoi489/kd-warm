@@ -269,6 +269,9 @@ public final class ServiceManager: ObservableObject {
                 self.busy.remove(kind)
                 self.setSnapshotBusy(kind, false, errorMessage: message)
             }
+            // Re-derive the real status NOW instead of waiting up to one ~0.9s poll cycle, so the
+            // button flips start↔stop the instant the action finishes (no laggy 2s gap after the spinner).
+            await self?.refresh()
         }
     }
 
