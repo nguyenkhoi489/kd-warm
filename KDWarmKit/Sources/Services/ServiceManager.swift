@@ -73,7 +73,9 @@ public final class ServiceManager: ObservableObject {
     }
 
     private func replaceSnapshot(_ snap: ServiceSnapshot) {
-        if let i = snapshots.firstIndex(where: { $0.kind == snap.kind }) { snapshots[i] = snap }
+        if let i = snapshots.firstIndex(where: { $0.kind == snap.kind }), snapshots[i] != snap {
+            snapshots[i] = snap
+        }
     }
 
     /// Begin the health poll. Safe to call once (idempotent).
@@ -191,7 +193,9 @@ public final class ServiceManager: ObservableObject {
             default:      next.append(await independentSnapshot(kind))
             }
         }
-        snapshots = next
+        // Only publish on a real change — @Published fires objectWillChange on every set, even an
+        // identical one, which would redraw the whole Services list ~1x/sec for nothing.
+        if next != snapshots { snapshots = next }
     }
 
     private func independentSnapshot(_ kind: ServiceKind) async -> ServiceSnapshot {
