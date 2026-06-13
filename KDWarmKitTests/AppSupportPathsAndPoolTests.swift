@@ -42,6 +42,9 @@ final class AppSupportPathsAndPoolTests: XCTestCase {
         // mysqli (WordPress) and pdo_mysql (Laravel).
         XCTAssertTrue(conf.contains("php_value[mysqli.default_socket] = \(sock)"))
         XCTAssertTrue(conf.contains("php_value[pdo_mysql.default_socket] = \(sock)"))
+        // The legacy ext/mysql directive was removed in PHP 7 — setting it makes php-fpm log
+        // "Unable to set php_value 'mysql.default_socket'" on every worker. Must not be emitted.
+        XCTAssertFalse(conf.contains("php_value[mysql.default_socket]"))
     }
 
     func testPortPreflightConflictMessageNamesApache() {

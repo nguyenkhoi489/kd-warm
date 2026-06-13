@@ -17,14 +17,14 @@ struct RuntimesSectionView: View {
     /// Identifiable wrapper so the editor sheet binds to which PHP version was tapped.
     private struct EditingIni: Identifiable { let version: String; var id: String { version } }
 
-    /// A remove request awaiting confirmation. `blockedBy` lists the site domains still on this
-    /// version (PHP only); non-empty means removal is refused, not just confirmed.
+    /// A remove request awaiting confirmation. `inUseBy` lists the site domains still on this version
+    /// (PHP only). Removal is ALLOWED even when in use — those sites fall back to another installed PHP
+    /// version — but the confirm spells out the consequence.
     private struct PendingUninstall: Identifiable {
         let language: RuntimeLanguage
         let version: String
-        let blockedBy: [String]
+        let inUseBy: [String]
         var id: String { "\(language.rawValue)-\(version)" }
-        var canRemove: Bool { blockedBy.isEmpty }
     }
 
     private let columns = [GridItem(.flexible(), spacing: KDSpacing.space3),
@@ -48,28 +48,40 @@ struct RuntimesSectionView: View {
         .task(id: runtimes.installed[.php] ?? []) { await loadPHPExtensions() }
     }
 
-    /// Build a request: PHP versions still bound to sites are refused; everything else is confirmed.
+    /// Build a request: note which sites still use this version (PHP) so the confirm can warn.
     private func requestUninstall(_ lang: RuntimeLanguage, _ version: String) {
-        let blockers = lang == .php
+        let inUse = lang == .php
             ? server.registry.sites.filter { $0.type == .php && $0.phpVersion == version }.map(\.domain)
             : []
-        pendingUninstall = PendingUninstall(language: lang, version: version, blockedBy: blockers)
+        pendingUninstall = PendingUninstall(language: lang, version: version, inUseBy: inUse)
     }
 
     private func uninstallAlert(_ p: PendingUninstall) -> Alert {
         let name = "\(p.language.displayName) \(p.version)"
-        guard p.canRemove else {
-            let n = p.blockedBy.count
-            return Alert(
-                title: Text("Can’t remove \(name)"),
-                message: Text("In use by \(n) site\(n == 1 ? "" : "s"): \(p.blockedBy.joined(separator: ", ")). Switch them to another version first."),
-                dismissButton: .default(Text("OK")))
+        guard !p.inUseBy.isEmpty else {
+            return Alert(title: Text("Remove \(name)?"),
+                         message: Text("This deletes the downloaded runtime. You can reinstall it anytime from here."),
+                         primaryButton: .destructive(Text("Remove")) { performUninstall(p) },
+                         secondaryButton: .cancel())
         }
+        let n = p.inUseBy.count
+        let sites = p.inUseBy.joined(separator: ", ")
+        let others = (runtimes.installed[.php] ?? []).filter { $0 != p.version }
+        let consequence = others.isEmpty
+            ? "No other PHP is installed, so those sites will stop serving until you install one."
+            : "Those sites will fall back to PHP \(others.max { $0.compare($1, options: .numeric) == .orderedAscending }!) until you switch them."
         return Alert(
             title: Text("Remove \(name)?"),
-            message: Text("This deletes the downloaded runtime. You can reinstall it anytime from here."),
-            primaryButton: .destructive(Text("Remove")) { runtimes.uninstall(p.language, p.version) },
+            message: Text("In use by \(n) site\(n == 1 ? "" : "s"): \(sites). \(consequence)"),
+            primaryButton: .destructive(Text("Remove anyway")) { performUninstall(p) },
             secondaryButton: .cancel())
+    }
+
+    /// Remove the runtime, then re-apply web config so PHP sites that used it re-route to their
+    /// fallback version (no lingering 502 against a now-deleted pool socket).
+    private func performUninstall(_ p: PendingUninstall) {
+        runtimes.uninstall(p.language, p.version)
+        if p.language == .php { server.reconcileAfterRuntimeChange() }
     }
 
     /// Probe `php -m` for each installed PHP version off the main thread, then publish the map.

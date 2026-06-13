@@ -200,6 +200,11 @@ public final class LocalServerController: ObservableObject {
         reconcile()
     }
 
+    /// Re-apply web config after a runtime install/uninstall changed which PHP versions exist, so
+    /// vhosts re-route to the now-effective version and pools reconcile (a site whose pinned version
+    /// was just removed falls back to an installed one). No-op while the server is stopped.
+    public func reconcileAfterRuntimeChange() { onRegistryChanged() }
+
     private func reconcile() {
         isBusy = true
         let sites = registry.sites
