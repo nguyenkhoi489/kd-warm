@@ -54,7 +54,6 @@ public struct PHPFPMPoolWriter {
         php_admin_value[sendmail_path] = \(sendmail)
         php_value[mysqli.default_socket] = \(mysqlSocket)
         php_value[pdo_mysql.default_socket] = \(mysqlSocket)
-        php_value[mysql.default_socket] = \(mysqlSocket)
         """
     }
 
