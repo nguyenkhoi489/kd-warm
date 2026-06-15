@@ -4,7 +4,9 @@ import KDWarmKit
 
 struct SchemaTreeView: View {
     @EnvironmentObject private var vm: DatabaseViewModel
-    
+
+    var onSelectDatabase: () -> Void = {}
+
     @State private var expanded: Set<String> = []
 
     var body: some View {
@@ -63,7 +65,10 @@ struct SchemaTreeView: View {
         }
         .padding(.vertical, 1)
         .contentShape(Rectangle())
-        .onTapGesture { Task { await vm.select(table: table) } }
+        .onTapGesture {
+            Task { await vm.select(table: table) }
+            onSelectDatabase()
+        }
     }
 
     
@@ -74,6 +79,7 @@ struct SchemaTreeView: View {
                 if isOpen {
                     expanded.insert(name)
                     if vm.selectedDatabase != name { Task { await vm.select(database: name) } }
+                    onSelectDatabase()
                 } else {
                     expanded.remove(name)
                 }

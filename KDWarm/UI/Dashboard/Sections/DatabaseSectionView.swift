@@ -2,9 +2,12 @@ import SwiftUI
 import KDWarmKit
 
 struct DatabaseSectionView: View {
+    var inWindow = false
+
     @EnvironmentObject private var vm: DatabaseViewModel
     @EnvironmentObject private var documentVM: DocumentViewModel
     @EnvironmentObject private var services: ServiceManager
+    @Environment(\.openWindow) private var openWindow
     @State private var rightTab: RightTab = .data
     @State private var showingImportExport = false
 
@@ -17,6 +20,8 @@ struct DatabaseSectionView: View {
 
     private var isDocumentTrack: Bool { documentVM.selectedProfile != nil }
 
+    private func openBrowserWindow() { openWindow(id: DatabaseWindow.windowID) }
+
     var body: some View {
         VStack(spacing: 0) {
             toolbar
@@ -24,10 +29,9 @@ struct DatabaseSectionView: View {
             HSplitView {
                 ConnectionSidebarView()
                 if isDocumentTrack {
-                    DocumentSectionContent()
+                    documentTrack
                 } else {
-                    SchemaTreeView()
-                    rightPane.frame(minWidth: 360)
+                    relationalTrack
                 }
             }
         }
@@ -35,12 +39,51 @@ struct DatabaseSectionView: View {
         .sheet(isPresented: $showingImportExport) { ImportExportSheet() }
     }
 
+    @ViewBuilder
+    private var relationalTrack: some View {
+        if inWindow {
+            SchemaTreeView()
+            rightPane.frame(minWidth: 360)
+        } else {
+            SchemaTreeView(onSelectDatabase: openBrowserWindow)
+            dashboardRightPane.frame(minWidth: 320)
+        }
+    }
+
+    @ViewBuilder
+    private var documentTrack: some View {
+        if inWindow {
+            DocumentSectionContent()
+        } else if documentVM.connection == .connected {
+            CollectionTreeView(onSelectDatabase: openBrowserWindow)
+            launcherPane.frame(minWidth: 320)
+        } else {
+            DocumentSectionContent()
+        }
+    }
+
+    @ViewBuilder
+    private var dashboardRightPane: some View {
+        switch vm.connection {
+        case .connected: launcherPane
+        default:         connectionGate
+        }
+    }
+
+    private var launcherPane: some View {
+        EmptyStateView(symbol: "macwindow.on.rectangle",
+                       title: "Opens in its own window",
+                       message: "Pick a database to browse its tables and data in a full-width window.",
+                       actionTitle: "Open Database Window",
+                       action: openBrowserWindow)
+    }
+
     private var toolbar: some View {
         HStack(spacing: KDSpacing.space3) {
             Text(activeProfileName).font(KDFont.headline)
             connectionStatus
             Spacer()
-            if !isDocumentTrack {
+            if inWindow && !isDocumentTrack {
                 Button { showingImportExport = true } label: {
                     Image(systemName: "square.and.arrow.up.on.square")
                 }
@@ -116,11 +159,19 @@ struct DatabaseSectionView: View {
             case .structure: TableStructureView()
             case .query:     QueryEditorView()
             }
+        default:
+            connectionGate
+        }
+    }
+
+    @ViewBuilder
+    private var connectionGate: some View {
+        switch vm.connection {
         case .connecting:
             ProgressView("Connecting…").frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let error):
             failureGate(error)
-        case .idle:
+        default:
             EmptyStateView(symbol: "cylinder.split.1x2",
                            title: "Database",
                            message: "Pick a connection on the left to browse tables and run SQL.")

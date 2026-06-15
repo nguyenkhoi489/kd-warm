@@ -3,6 +3,9 @@ import KDWarmKit
 
 struct CollectionTreeView: View {
     @EnvironmentObject private var vm: DocumentViewModel
+
+    var onSelectDatabase: () -> Void = {}
+
     @State private var expanded: Set<String> = []
     @State private var pendingDrop: String?
     @State private var creatingInDatabase: String?
@@ -79,7 +82,10 @@ struct CollectionTreeView: View {
         }
         .padding(.vertical, 1)
         .contentShape(Rectangle())
-        .onTapGesture { Task { await vm.select(collection: collection.name) } }
+        .onTapGesture {
+            Task { await vm.select(collection: collection.name) }
+            onSelectDatabase()
+        }
         .contextMenu {
             if !vm.isReadOnlyConnection {
                 Button("Drop Collection…", role: .destructive) { pendingDrop = collection.name }
@@ -102,6 +108,7 @@ struct CollectionTreeView: View {
                 if isOpen {
                     expanded.insert(name)
                     if vm.selectedDatabase != name { Task { await vm.select(database: name) } }
+                    onSelectDatabase()
                 } else {
                     expanded.remove(name)
                 }

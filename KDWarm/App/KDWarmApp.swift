@@ -42,6 +42,16 @@ struct KDWarmApp: App {
         .defaultSize(width: 920, height: 600)
         .windowResizability(.contentMinSize)
 
+        Window("Database", id: DatabaseWindow.windowID) {
+            DatabaseWindow()
+                .environmentObject(appDelegate.services)
+                .environmentObject(appDelegate.connectionStore)
+                .environmentObject(appDelegate.databaseViewModel)
+                .environmentObject(appDelegate.documentViewModel)
+        }
+        .defaultSize(width: 1180, height: 760)
+        .windowResizability(.contentMinSize)
+
         Settings {
             SettingsView(preferences: appDelegate.preferences,
                          dns: appDelegate.dns,
