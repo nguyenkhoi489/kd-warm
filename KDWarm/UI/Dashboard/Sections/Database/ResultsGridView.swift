@@ -2,12 +2,13 @@ import SwiftUI
 import AppKit
 import KDWarmKit
 
-/// Renders a `QueryResultSet` in an AppKit `NSTableView` — SwiftUI's `Table` can't take columns that
-/// are only known at runtime. Columns are rebuilt when the result's column list changes; rows reload
-/// on every new result. View-based cells reuse a single identifier so a few hundred rows scroll
-/// smoothly, and SQL NULLs render distinctly from empty strings.
+/// Renders a `QueryResult` in an AppKit `NSTableView` — SwiftUI's `Table` can't take columns that
+/// are only known at runtime. Columns are rebuilt only when the column set changes; rows reload on
+/// every new result. View-based cells reuse a single identifier so a few hundred rows scroll
+/// smoothly. A `.null` cell renders as a muted "NULL" placeholder, distinct from an empty string,
+/// and a `.blob` shows its byte-length summary rather than mangling raw bytes into text.
 struct ResultsGridView: NSViewRepresentable {
-    let result: QueryResultSet
+    let result: QueryResult
 
     func makeCoordinator() -> Coordinator { Coordinator(result: result) }
 
@@ -15,6 +16,7 @@ struct ResultsGridView: NSViewRepresentable {
         let table = NSTableView()
         table.usesAlternatingRowBackgroundColors = true
         table.allowsColumnResizing = true
+        table.columnAutoresizingStyle = .noColumnAutoresizing
         table.rowHeight = 20
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
@@ -33,26 +35,26 @@ struct ResultsGridView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
-        private(set) var result: QueryResultSet
+        private(set) var result: QueryResult
         weak var table: NSTableView?
 
-        init(result: QueryResultSet) { self.result = result }
+        init(result: QueryResult) { self.result = result }
 
         /// Reload for a new result, rebuilding columns only when the column set actually changed
         /// (re-running the same query keeps the existing columns, so just the rows refresh).
-        func apply(_ newResult: QueryResultSet) {
+        func apply(_ newResult: QueryResult) {
             let columnsChanged = newResult.columns != result.columns
             result = newResult
             if columnsChanged { rebuildColumns(for: newResult) }
             table?.reloadData()
         }
 
-        func rebuildColumns(for result: QueryResultSet) {
+        func rebuildColumns(for result: QueryResult) {
             guard let table else { return }
             for column in table.tableColumns { table.removeTableColumn(column) }
-            for (index, name) in result.columns.enumerated() {
+            for (index, meta) in result.columns.enumerated() {
                 let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("col-\(index)"))
-                column.title = name
+                column.title = meta.name
                 column.minWidth = 60
                 column.width = 140
                 table.addTableColumn(column)
@@ -72,8 +74,10 @@ struct ResultsGridView: NSViewRepresentable {
             let field = (tableView.makeView(withIdentifier: identifier, owner: self) as? NSTextField)
                 ?? Self.makeCell(identifier: identifier)
 
-            if let value = result.rows[row][columnIndex] {
-                field.stringValue = value
+            // `.null` returns nil from `displayText` — surface it as a styled placeholder so a SQL
+            // NULL reads differently from a text cell whose value is the empty string or "NULL".
+            if let text = result.rows[row][columnIndex].displayText {
+                field.stringValue = text
                 field.textColor = .labelColor
             } else {
                 field.stringValue = "NULL"

@@ -48,19 +48,14 @@ struct DashboardWindow: View {
                                      caTrust: caTrust, updater: updater, uninstaller: uninstaller)
                             .navigationTitle("Settings")
         case .about:    AboutSettingsView().navigationTitle("About")
-        #if DEBUG
-        case .database: DatabaseSpikeView()
-        #endif
+        case .database: DatabaseSectionView()
         }
     }
 }
 
 /// Top-level dashboard destinations (design-guidelines §5.6).
 enum SidebarItem: String, CaseIterable, Identifiable {
-    case sites, services, runtimes, logs, mail, settings, about
-    #if DEBUG
-    case database   // DEBUG-only harness for the in-progress database editor (see DatabaseSpikeView).
-    #endif
+    case sites, services, runtimes, database, logs, mail, settings, about
 
     var id: String { rawValue }
 
@@ -69,13 +64,11 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .sites:    return "Sites"
         case .services: return "Services"
         case .runtimes: return "Runtimes"
+        case .database: return "Database"
         case .logs:     return "Logs"
         case .mail:     return "Mail"
         case .settings: return "Settings"
         case .about:    return "About"
-        #if DEBUG
-        case .database: return "Database"
-        #endif
         }
     }
 
@@ -84,13 +77,11 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .sites:    return "globe"
         case .services: return "server.rack"
         case .runtimes: return "cpu"
+        case .database: return "cylinder.split.1x2"
         case .logs:     return "text.alignleft"
         case .mail:     return "envelope"
         case .settings: return "gearshape"
         case .about:    return "info.circle"
-        #if DEBUG
-        case .database: return "cylinder.split.1x2"
-        #endif
         }
     }
 }

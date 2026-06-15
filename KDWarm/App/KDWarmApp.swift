@@ -38,6 +38,8 @@ struct KDWarmApp: App {
                 .environmentObject(appDelegate.caTrust)
                 .environmentObject(appDelegate.updater)
                 .environmentObject(appDelegate.uninstaller)
+                .environmentObject(appDelegate.connectionStore)
+                .environmentObject(appDelegate.databaseViewModel)
         }
         .defaultSize(width: 920, height: 600)
         .windowResizability(.contentMinSize)
@@ -97,6 +99,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Local root CA trust (mkcert) for HTTPS `*.test`.
     @MainActor lazy var caTrust = CATrustService(
         paths: AppSupportPaths(), mkcertBinary: Self.bundleBinDir.appendingPathComponent("mkcert"))
+
+    /// Saved database connection profiles (managed engine is synthetic + always listed). Persists to
+    /// `config/database/connections.json`; passwords live in the Keychain, never in this JSON.
+    @MainActor lazy var connectionStore = ConnectionStore(
+        storeURL: AppSupportPaths().config
+            .appendingPathComponent("database", isDirectory: true)
+            .appendingPathComponent("connections.json"))
+
+    /// Drives the Database section: owns the live driver + selection chain + result state.
+    @MainActor lazy var databaseViewModel = DatabaseViewModel()
 
     private static var bundleBinDir: URL {
         Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true)
