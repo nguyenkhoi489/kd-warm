@@ -132,6 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // Tear down the shared database event-loop group BEFORE the engines are booted out, so any
+        // in-flight DB connection closes cleanly against a still-live server. `shutdown()` is async
+        // and this handler is synchronous, so block until it finishes — bounded, the group runs one
+        // thread and its completion lands off the main thread (no deadlock).
+        let dbShutdown = DispatchSemaphore(value: 0)
+        Task.detached {
+            try? await EventLoopProvider.shared.shutdown()
+            dbShutdown.signal()
+        }
+        dbShutdown.wait()
         // Quit stops every KDWarm service (nginx, php-fpm, databases, Mailpit) + the folder watcher,
         // so nothing keeps running after the app exits. `shutdownForQuit` boots out the launchd jobs
         // synchronously, so the handler waits for a clean DB shutdown before the process dies.
