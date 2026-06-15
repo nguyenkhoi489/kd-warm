@@ -73,4 +73,23 @@ enum MySQLCellMapper {
     static func columnMeta(_ column: MySQLProtocol.ColumnDefinition41) -> ColumnMeta {
         ColumnMeta(name: column.name, typeName: column.columnType.description)
     }
+
+    // MARK: - Cell → bind value (write path)
+
+    /// A typed `Cell` to a `MySQLData` bind for parameterized DML. Text/int/double/bool use the typed
+    /// inits; `.blob` ships raw bytes as a binary BLOB; `.null` is a typed NULL. The server coerces a
+    /// string bind into the target column's type, so editing a typed column via text round-trips.
+    static func mysqlData(for cell: Cell) -> MySQLData {
+        switch cell {
+        case .text(let s):   return MySQLData(string: s)
+        case .int(let n):    return MySQLData(int: Int(n))
+        case .double(let d): return MySQLData(double: d)
+        case .bool(let b):   return MySQLData(bool: b)
+        case .null:          return MySQLData.null
+        case .blob(let data):
+            var buffer = ByteBufferAllocator().buffer(capacity: data.count)
+            buffer.writeBytes(data)
+            return MySQLData(type: .blob, format: .binary, buffer: buffer)
+        }
+    }
 }

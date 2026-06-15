@@ -18,6 +18,20 @@ struct QueryEditorView: View {
             editor
             results
         }
+        .alert("Run this destructive statement?", isPresented: dangerousBinding,
+               presenting: vm.pendingDangerousSQL) { _ in
+            Button("Run anyway", role: .destructive) { Task { await vm.runSQL(sql, confirmed: true) } }
+            Button("Cancel", role: .cancel) { vm.cancelDangerousSQL() }
+        } message: { _ in
+            Text(DestructiveGuard.evaluate(sql).reason
+                 ?? "This statement may change or remove many rows.")
+        }
+    }
+
+    /// True while the VM holds a destructive statement awaiting confirmation.
+    private var dangerousBinding: Binding<Bool> {
+        Binding(get: { vm.pendingDangerousSQL != nil },
+                set: { if !$0 { vm.cancelDangerousSQL() } })
     }
 
     private var editor: some View {

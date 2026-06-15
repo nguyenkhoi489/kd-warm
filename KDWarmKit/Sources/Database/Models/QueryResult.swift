@@ -58,3 +58,16 @@ public struct QueryResult: Sendable, Equatable {
     public var rowCount: Int { rows.count }
     public var columnNames: [String] { columns.map(\.name) }
 }
+
+/// One column-name → value pair for a row mutation (INSERT values, UPDATE SET clause, or a key
+/// predicate). Ordered (an array, not a dictionary) so the generated SQL and its bound values are
+/// deterministic — the dialect emits columns in the order given and the binds line up positionally.
+public struct ColumnValue: Sendable, Equatable {
+    public let column: String
+    public let value: Cell
+
+    public init(column: String, value: Cell) {
+        self.column = column
+        self.value = value
+    }
+}

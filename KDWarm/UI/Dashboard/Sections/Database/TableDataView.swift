@@ -1,27 +1,47 @@
 import SwiftUI
 import KDWarmKit
 
-/// Right-pane "Data" tab: the paginated row browser for the selected table. Renders the grid only
-/// for a table-browse result (`resultSource == .table`) so a SQL-runner result never leaks in under
-/// pagination controls that don't apply to it.
+/// Right-pane "Data" tab: the paginated row browser + row CRUD for the selected table. Shows the grid
+/// for any single-table browse (`isTableBrowse`); edit/insert/delete are enabled only when the table
+/// has a usable primary key (`canEditRows`), otherwise a one-line reason explains why it's read-only.
 struct TableDataView: View {
     @EnvironmentObject private var vm: DatabaseViewModel
+    @State private var selectedRow: Int?
+    @State private var editor: EditorMode?
+    @State private var pendingDelete: Int?
+
+    /// Identifiable sheet target: add a new row, or edit the row at this page index.
+    enum EditorMode: Identifiable {
+        case insert
+        case edit(Int)
+        var id: String { if case .edit(let r) = self { return "edit-\(r)" } else { return "insert" } }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            pager
+            toolbar
             Divider()
             grid
         }
+        .sheet(item: $editor) { RowEditorView(mode: $0) }
+        .alert("Delete this row?", isPresented: deleteConfirmBinding, presenting: pendingDelete) { row in
+            Button("Delete", role: .destructive) { Task { await vm.deleteRow(at: row) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in Text("This permanently removes the row from the table.") }
+        .alert("Edit failed", isPresented: editErrorBinding, presenting: vm.editError) { _ in
+            Button("OK", role: .cancel) { vm.clearEditError() }
+        } message: { Text($0) }
     }
+
+    // MARK: - Grid
 
     @ViewBuilder
     private var grid: some View {
-        if let result = vm.result, vm.isResultEditable {
-            ResultsGridView(result: result)
+        if let result = vm.result, vm.isTableBrowse {
+            ResultsGridView(result: result, selectedRow: $selectedRow,
+                            onDoubleClick: { if vm.canEditRows { editor = .edit($0) } })
         } else if vm.selectedTable == nil {
-            EmptyStateView(symbol: "tablecells",
-                           title: "No table selected",
+            EmptyStateView(symbol: "tablecells", title: "No table selected",
                            message: "Pick a table in the schema tree to browse its rows.")
         } else if let error = vm.resultError {
             EmptyStateView(symbol: "exclamationmark.triangle",
@@ -31,14 +51,39 @@ struct TableDataView: View {
         }
     }
 
-    private var pager: some View {
+    // MARK: - Toolbar
+
+    private var toolbar: some View {
         HStack(spacing: KDSpacing.space2) {
             if let table = vm.selectedTable {
                 Label(table.name, systemImage: table.isView ? "eye" : "tablecells")
                     .font(KDFont.footnote).foregroundStyle(.secondary)
             }
+            if let reason = vm.editDisabledReason, vm.isTableBrowse {
+                Label(reason, systemImage: "lock").font(KDFont.footnote).foregroundStyle(.tertiary)
+            }
             Spacer()
-            if let result = vm.result, vm.isResultEditable, result.rowCount > 0 {
+            if vm.canEditRows { crudButtons }
+            pager
+        }
+        .padding(KDSpacing.space2)
+    }
+
+    private var crudButtons: some View {
+        HStack(spacing: KDSpacing.space2) {
+            Button { editor = .insert } label: { Image(systemName: "plus") }
+                .help("Add row").disabled(vm.isBusy)
+            Button { if let r = selectedRow { editor = .edit(r) } } label: { Image(systemName: "pencil") }
+                .help("Edit selected row").disabled(selectedRow == nil || vm.isBusy)
+            Button { pendingDelete = selectedRow } label: { Image(systemName: "trash") }
+                .help("Delete selected row").disabled(selectedRow == nil || vm.isBusy)
+            Divider().frame(height: 16)
+        }
+    }
+
+    private var pager: some View {
+        HStack(spacing: KDSpacing.space2) {
+            if let result = vm.result, vm.isTableBrowse, result.rowCount > 0 {
                 Text("rows \(vm.pageOffset + 1)–\(vm.pageOffset + result.rowCount)")
                     .font(KDFont.footnote).foregroundStyle(.secondary)
             }
@@ -47,6 +92,15 @@ struct TableDataView: View {
             Button { Task { await vm.nextPage() } } label: { Image(systemName: "chevron.right") }
                 .disabled(!vm.hasMorePages || vm.isBusy)
         }
-        .padding(KDSpacing.space2)
+    }
+
+    // MARK: - Alert bindings
+
+    private var deleteConfirmBinding: Binding<Bool> {
+        Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
+    }
+
+    private var editErrorBinding: Binding<Bool> {
+        Binding(get: { vm.editError != nil }, set: { if !$0 { vm.clearEditError() } })
     }
 }

@@ -15,10 +15,12 @@ import NIOSSL
 public struct MySQLDriver: RelationalDriver {
     public let kind: DatabaseKind = .mysql
 
-    private let profile: ConnectionProfile
-    private let password: String?
-    private let catalog: ServiceBinaryCatalog
-    private let dialect = SQLDialect.forKind(.mysql)
+    // Non-private so the CRUD extension (`MySQLDriver+CRUD.swift`) can reach them; still internal to
+    // the framework, never part of the public API.
+    let profile: ConnectionProfile
+    let password: String?
+    let catalog: ServiceBinaryCatalog
+    let dialect = SQLDialect.forKind(.mysql)
 
     public init(profile: ConnectionProfile,
                 password: String?,
@@ -107,7 +109,7 @@ public struct MySQLDriver: RelationalDriver {
         return QueryResult(columns: columns, rows: rows)
     }
 
-    private func connect(database: String?) async throws -> MySQLConnection {
+    func connect(database: String?) async throws -> MySQLConnection {
         let group = try EventLoopProvider.shared.group()
         let address = try SocketAddress.makeAddressResolvingHost(profile.host, port: profile.port)
         do {
@@ -126,7 +128,7 @@ public struct MySQLDriver: RelationalDriver {
 
     /// The managed engine is on-demand: if its profile is selected but no engine is installed, fail
     /// with `engineNotInstalled` up front rather than letting the connect attempt time out opaquely.
-    private func preflightManagedEngine() throws {
+    func preflightManagedEngine() throws {
         guard profile.isManaged else { return }
         guard catalog.isInstalled(.mysql) else {
             throw DatabaseError.engineNotInstalled(kind: "MySQL")

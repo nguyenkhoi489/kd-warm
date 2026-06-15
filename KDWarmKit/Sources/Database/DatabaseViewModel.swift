@@ -40,27 +40,53 @@ public final class DatabaseViewModel: ObservableObject {
     @Published public private(set) var result: QueryResult?
     @Published public private(set) var resultError: String?
     @Published public private(set) var resultSource: ResultSource = .none
-    @Published public private(set) var isBusy = false
+    // `internal(set)` so the row-CRUD extension (a separate file) can flip busy state + surface errors.
+    @Published public internal(set) var isBusy = false
     @Published public private(set) var pageOffset = 0
     /// True while the latest table page came back full (== `pageSize`), so a next page may exist.
     @Published public private(set) var hasMorePages = false
+    /// Introspected columns of the currently browsed table (drives PK-keyed edits + the row editor).
+    /// Empty for a SQL-runner result.
+    @Published public private(set) var currentColumns: [ColumnInfo] = []
+    /// A destructive SQL statement awaiting explicit confirmation before it runs (set by `runSQL`).
+    @Published public private(set) var pendingDangerousSQL: String?
+    /// Last row-mutation failure, surfaced as an alert (distinct from `resultError`, which replaces
+    /// the grid). Nil when there's nothing to show. `internal(set)` for the row-CRUD extension.
+    @Published public internal(set) var editError: String?
 
     /// Rows per table page. Bounded default keeps an unbounded `SELECT *` from materializing a huge
     /// table in memory; pagination walks the rest.
     public var pageSize = 100
 
-    /// Editing is only valid against a single-table browse result — a SQL-runner/JOIN result has no
-    /// well-defined target table. The row-CRUD phase gates writes on this.
-    public var isResultEditable: Bool {
+    /// A single-table browse result (vs a SQL-runner/JOIN result). Drives showing the row grid +
+    /// pagination; editability additionally requires a usable key (`canEditRows`).
+    public var isTableBrowse: Bool {
         if case .table = resultSource { return true }
         return false
     }
+
+    /// The browsed table's primary-key columns — the key set edits build UPDATE/DELETE predicates from.
+    public var primaryKeyColumns: [ColumnInfo] { currentColumns.primaryKeyColumns }
+
+    /// Why row editing is unavailable, or nil when it's allowed. Editing needs a single-table browse
+    /// AND a primary key to target exactly one row; a SQL result or a PK-less table is read-only.
+    public var editDisabledReason: String? {
+        guard isTableBrowse else { return "Editing is only available when browsing a single table." }
+        guard !primaryKeyColumns.isEmpty else {
+            return "This table has no primary key, so rows can't be edited safely."
+        }
+        return nil
+    }
+
+    /// True when rows in the current result can be inserted/updated/deleted.
+    public var canEditRows: Bool { editDisabledReason == nil }
 
     public typealias DriverFactory = @Sendable (ConnectionProfile, String?) -> RelationalDriver?
 
     private let makeDriver: DriverFactory
     private let passwordFor: @Sendable (ConnectionProfile) -> String?
-    private var driver: RelationalDriver?
+    /// `private(set)` so the row-CRUD extension can read the live driver (only this file sets it).
+    private(set) var driver: RelationalDriver?
 
     /// Bumped on every new top-level operation; an async continuation whose token no longer matches
     /// is stale and bails before publishing.
@@ -121,9 +147,21 @@ public final class DatabaseViewModel: ObservableObject {
     }
 
     public func select(table: TableInfo) async {
-        guard selectedDatabase != nil else { return }
+        guard let driver, let database = selectedDatabase else { return }
         selectedTable = table
         pageOffset = 0
+        currentColumns = []
+        let token = beginOperation()
+        // Introspect columns (PK flags) so the first page can be edited; a stale selection bails
+        // before loading the page so it can't supersede a newer one.
+        do {
+            let cols = try await driver.columns(database: database, table: table.name)
+            guard token == generation else { return }
+            currentColumns = cols
+        } catch {
+            guard token == generation else { return }
+            currentColumns = []
+        }
         await loadPage()
     }
 
@@ -141,7 +179,8 @@ public final class DatabaseViewModel: ObservableObject {
         await loadPage()
     }
 
-    private func loadPage() async {
+    /// Internal so the row-CRUD extension can reload the page after a successful write.
+    func loadPage() async {
         guard let driver, let database = selectedDatabase, let table = selectedTable else { return }
         let token = beginOperation()
         do {
@@ -164,11 +203,18 @@ public final class DatabaseViewModel: ObservableObject {
     // MARK: - SQL runner
 
     /// Run arbitrary SQL against the selected database. The result is read-only (`.query` source) —
-    /// a JOIN/expression result has no single editable target table.
-    public func runSQL(_ sql: String) async {
+    /// a JOIN/expression result has no single editable target table. A destructive statement
+    /// (keyless DELETE/UPDATE, DROP/TRUNCATE) is held in `pendingDangerousSQL` for the UI to confirm;
+    /// the caller re-invokes with `confirmed: true` to actually run it.
+    public func runSQL(_ sql: String, confirmed: Bool = false) async {
         guard let driver else { return }
         let trimmed = sql.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        if !confirmed, DestructiveGuard.evaluate(trimmed).isDestructive {
+            pendingDangerousSQL = trimmed
+            return
+        }
+        pendingDangerousSQL = nil
         let token = beginOperation()
         do {
             let r = try await driver.query(trimmed, database: selectedDatabase)
@@ -186,6 +232,12 @@ public final class DatabaseViewModel: ObservableObject {
         if token == generation { isBusy = false }
     }
 
+    /// Dismiss the pending destructive-SQL confirmation without running it.
+    public func cancelDangerousSQL() { pendingDangerousSQL = nil }
+
+    /// Clear the last edit error after the UI has shown it.
+    public func clearEditError() { editError = nil }
+
     // MARK: - Helpers
 
     private func beginOperation() -> Int {
@@ -194,7 +246,8 @@ public final class DatabaseViewModel: ObservableObject {
         return generation
     }
 
-    private static func asDatabaseError(_ error: Error) -> DatabaseError {
+    /// Map any error to the typed surface. Internal so the row-CRUD extension reuses it.
+    static func asDatabaseError(_ error: Error) -> DatabaseError {
         (error as? DatabaseError) ?? .connection(error.localizedDescription)
     }
 }

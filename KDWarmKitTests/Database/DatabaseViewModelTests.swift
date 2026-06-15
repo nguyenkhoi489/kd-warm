@@ -15,7 +15,12 @@ final class DatabaseViewModelTests: XCTestCase {
         let tag: String
         var databasesDelay: Duration = .zero
         var queryShouldThrow: DatabaseError?
+        var columnsResult: [ColumnInfo] = []
+        var writeShouldThrow: DatabaseError?
         private(set) var paginateCalls: [(database: String, table: String, limit: Int, offset: Int)] = []
+        private(set) var insertCalls: [[ColumnValue]] = []
+        private(set) var updateCalls: [(values: [ColumnValue], key: [ColumnValue])] = []
+        private(set) var deleteCalls: [[ColumnValue]] = []
 
         init(tag: String) { self.tag = tag }
 
@@ -30,7 +35,7 @@ final class DatabaseViewModelTests: XCTestCase {
             [TableInfo(name: "users"), TableInfo(name: "orders")]
         }
 
-        func columns(database: String, table: String) async throws -> [ColumnInfo] { [] }
+        func columns(database: String, table: String) async throws -> [ColumnInfo] { columnsResult }
 
         func query(_ sql: String, database: String?) async throws -> QueryResult {
             if let queryShouldThrow { throw queryShouldThrow }
@@ -43,6 +48,22 @@ final class DatabaseViewModelTests: XCTestCase {
             // Return a full page so the VM reports `hasMorePages`.
             let rows = (0..<limit).map { _ in [Cell.int(Int64(offset))] }
             return QueryResult(columns: [ColumnMeta(name: "id")], rows: rows)
+        }
+
+        func insert(database: String, table: String, values: [ColumnValue]) async throws {
+            if let writeShouldThrow { throw writeShouldThrow }
+            insertCalls.append(values)
+        }
+
+        func update(database: String, table: String,
+                    values: [ColumnValue], key: [ColumnValue]) async throws {
+            if let writeShouldThrow { throw writeShouldThrow }
+            updateCalls.append((values, key))
+        }
+
+        func delete(database: String, table: String, key: [ColumnValue]) async throws {
+            if let writeShouldThrow { throw writeShouldThrow }
+            deleteCalls.append(key)
         }
     }
 
@@ -67,7 +88,7 @@ final class DatabaseViewModelTests: XCTestCase {
         await vm.select(table: TableInfo(name: "users"))
         XCTAssertEqual(vm.pageOffset, 0)
         XCTAssertEqual(vm.result?.rowCount, vm.pageSize)
-        XCTAssertTrue(vm.isResultEditable)            // single-table browse → editable target
+        XCTAssertTrue(vm.isTableBrowse)               // single-table browse → grid + pagination
         XCTAssertTrue(vm.hasMorePages)
     }
 
@@ -77,7 +98,7 @@ final class DatabaseViewModelTests: XCTestCase {
         await vm.runSQL("SELECT 1")
         XCTAssertEqual(vm.result?.columns.map(\.name), ["n"])
         XCTAssertNil(vm.resultError)
-        XCTAssertFalse(vm.isResultEditable)           // arbitrary query → read-only
+        XCTAssertFalse(vm.isTableBrowse)              // arbitrary query → read-only
     }
 
     func testRunningInvalidSQLSurfacesError() async {
@@ -113,6 +134,87 @@ final class DatabaseViewModelTests: XCTestCase {
         await vm.select(profile: pg)
         if case .failed = vm.connection {} else { XCTFail("expected failed connection") }
         XCTAssertFalse(vm.isBusy)
+    }
+
+    // MARK: - Row CRUD
+
+    private let pkColumn = ColumnInfo(name: "id", dataType: "int",
+                                      isNullable: false, isPrimaryKey: true)
+
+    /// Connect, open a database, and browse a table whose columns are `cols`.
+    private func browseTable(_ driver: StubDriver, columns cols: [ColumnInfo]) async -> DatabaseViewModel {
+        driver.columnsResult = cols
+        let vm = makeVM(driver)
+        await vm.select(profile: .managedMySQL)
+        await vm.select(database: "db_a")
+        await vm.select(table: TableInfo(name: "users"))
+        return vm
+    }
+
+    func testCanEditRowsRequiresTableBrowseAndPrimaryKey() async {
+        let withPK = await browseTable(StubDriver(tag: "a"), columns: [pkColumn])
+        XCTAssertTrue(withPK.canEditRows)
+        XCTAssertNil(withPK.editDisabledReason)
+
+        let noPK = await browseTable(StubDriver(tag: "b"),
+            columns: [ColumnInfo(name: "x", dataType: "int", isNullable: true, isPrimaryKey: false)])
+        XCTAssertFalse(noPK.canEditRows)
+        XCTAssertNotNil(noPK.editDisabledReason)
+    }
+
+    func testSQLResultIsNeverEditable() async {
+        let vm = makeVM(StubDriver(tag: "a"))
+        await vm.select(profile: .managedMySQL)
+        await vm.runSQL("SELECT 1")
+        XCTAssertFalse(vm.canEditRows)
+        XCTAssertEqual(vm.editDisabledReason, "Editing is only available when browsing a single table.")
+    }
+
+    func testInsertRowCallsDriverAndReloads() async {
+        let driver = StubDriver(tag: "a")
+        let vm = await browseTable(driver, columns: [pkColumn])
+        let before = driver.paginateCalls.count
+        await vm.insertRow([ColumnValue(column: "id", value: .int(9))])
+        XCTAssertEqual(driver.insertCalls.count, 1)
+        XCTAssertEqual(driver.paginateCalls.count, before + 1)   // page reloaded after the write
+    }
+
+    func testUpdateRowBuildsKeyFromPrimaryKey() async {
+        let driver = StubDriver(tag: "a")
+        let vm = await browseTable(driver, columns: [pkColumn])
+        // First page row 0 is [.int(0)] for column "id" (the PK) per the stub.
+        await vm.updateRow(at: 0, values: [ColumnValue(column: "name", value: .text("z"))])
+        XCTAssertEqual(driver.updateCalls.count, 1)
+        XCTAssertEqual(driver.updateCalls.first?.key, [ColumnValue(column: "id", value: .int(0))])
+        XCTAssertEqual(driver.updateCalls.first?.values, [ColumnValue(column: "name", value: .text("z"))])
+    }
+
+    func testDeleteRowBuildsKeyFromPrimaryKey() async {
+        let driver = StubDriver(tag: "a")
+        let vm = await browseTable(driver, columns: [pkColumn])
+        await vm.deleteRow(at: 0)
+        XCTAssertEqual(driver.deleteCalls, [[ColumnValue(column: "id", value: .int(0))]])
+    }
+
+    func testWriteFailureSurfacesEditError() async {
+        let driver = StubDriver(tag: "a")
+        driver.writeShouldThrow = .connection("affected 3 rows; aborted")
+        let vm = await browseTable(driver, columns: [pkColumn])
+        await vm.deleteRow(at: 0)
+        XCTAssertEqual(vm.editError, DatabaseError.connection("affected 3 rows; aborted").message)
+    }
+
+    func testDestructiveSQLHeldForConfirmThenRuns() async {
+        let driver = StubDriver(tag: "a")
+        let vm = makeVM(driver)
+        await vm.select(profile: .managedMySQL)
+        await vm.runSQL("DELETE FROM t")             // keyless → held, not run
+        XCTAssertEqual(vm.pendingDangerousSQL, "DELETE FROM t")
+        XCTAssertNil(vm.result)
+
+        await vm.runSQL("DELETE FROM t", confirmed: true)
+        XCTAssertNil(vm.pendingDangerousSQL)         // cleared once confirmed
+        XCTAssertNotNil(vm.result)
     }
 
     func testStaleConnectResultIsDiscarded() async {

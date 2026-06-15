@@ -7,8 +7,13 @@ import KDWarmKit
 /// every new result. View-based cells reuse a single identifier so a few hundred rows scroll
 /// smoothly. A `.null` cell renders as a muted "NULL" placeholder, distinct from an empty string,
 /// and a `.blob` shows its byte-length summary rather than mangling raw bytes into text.
+///
+/// Optional `selectedRow`/`onDoubleClick` drive row editing on a single-table browse; the SQL runner
+/// omits them (read-only, no selection).
 struct ResultsGridView: NSViewRepresentable {
     let result: QueryResult
+    var selectedRow: Binding<Int?>? = nil
+    var onDoubleClick: ((Int) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(result: result) }
 
@@ -18,8 +23,11 @@ struct ResultsGridView: NSViewRepresentable {
         table.allowsColumnResizing = true
         table.columnAutoresizingStyle = .noColumnAutoresizing
         table.rowHeight = 20
+        table.allowsEmptySelection = true
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
+        table.target = context.coordinator
+        table.doubleAction = #selector(Coordinator.handleDoubleClick)
         context.coordinator.table = table
         context.coordinator.rebuildColumns(for: result)
 
@@ -31,12 +39,16 @@ struct ResultsGridView: NSViewRepresentable {
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.selectedRow = selectedRow
+        context.coordinator.onDoubleClick = onDoubleClick
         context.coordinator.apply(result)
     }
 
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         private(set) var result: QueryResult
         weak var table: NSTableView?
+        var selectedRow: Binding<Int?>?
+        var onDoubleClick: ((Int) -> Void)?
 
         init(result: QueryResult) { self.result = result }
 
@@ -84,6 +96,17 @@ struct ResultsGridView: NSViewRepresentable {
                 field.textColor = .tertiaryLabelColor
             }
             return field
+        }
+
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard let table else { return }
+            let row = table.selectedRow
+            selectedRow?.wrappedValue = row >= 0 ? row : nil
+        }
+
+        @objc func handleDoubleClick() {
+            guard let table, table.clickedRow >= 0, table.clickedRow < result.rows.count else { return }
+            onDoubleClick?(table.clickedRow)
         }
 
         private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTextField {
