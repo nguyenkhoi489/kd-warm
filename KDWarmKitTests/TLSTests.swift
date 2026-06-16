@@ -41,7 +41,7 @@ final class NginxTLSVhostWriterTests: XCTestCase {
 final class NginxTunnelVhostWriterTests: XCTestCase {
     private let writer = NginxTunnelVhostWriter()
 
-    func testTunnelPHPVhostKeepsPublicHostForFastCGI() {
+    func testTunnelPHPVhostForcesLocalHostForFastCGI() {
         let site = Site(name: "App", path: "/site", docroot: "/site/public",
                         domain: "app.test", phpVersion: "8.4", type: .php, secure: true)
         let v = writer.vhost(site: site, port: 45123,
@@ -50,11 +50,12 @@ final class NginxTunnelVhostWriterTests: XCTestCase {
         XCTAssertTrue(v.contains("listen 127.0.0.1:45123;"))
         XCTAssertTrue(v.contains("server_name _;"))
         XCTAssertFalse(v.contains("return 301"))
-        XCTAssertTrue(v.contains("fastcgi_param HTTP_HOST                $http_host;"))
-        XCTAssertTrue(v.contains("fastcgi_param SERVER_NAME              $http_host;"))
-        XCTAssertTrue(v.contains("fastcgi_param HTTP_X_FORWARDED_HOST    $http_host;"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTP_HOST                app.test;"))
+        XCTAssertTrue(v.contains("fastcgi_param SERVER_NAME              app.test;"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTP_X_FORWARDED_HOST    app.test;"))
         XCTAssertTrue(v.contains("fastcgi_param HTTP_X_FORWARDED_PROTO   https;"))
         XCTAssertTrue(v.contains("fastcgi_param HTTPS                    on;"))
+        XCTAssertFalse(v.contains("$http_host"))
     }
 
     func testTunnelStaticVhostUsesLoopbackPortWithoutFastCGI() {

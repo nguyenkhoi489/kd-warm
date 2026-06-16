@@ -9,7 +9,7 @@ public struct NginxTunnelVhostWriter {
                       accessLog: URL? = nil, errorLog: URL? = nil,
                       publicHost: String? = nil) -> String {
         let root = URL(fileURLWithPath: site.docroot)
-        let routing = phpFpmSocket.map { phpRouting(socket: $0) } ?? staticRouting()
+        let routing = phpFpmSocket.map { phpRouting(socket: $0, localHost: site.domain) } ?? staticRouting()
         let index = phpFpmSocket == nil ? "index.html index.htm" : "index.php index.html"
         let rewrite = publicHostRewrite(localDomain: site.domain, publicHost: publicHost)
         return """
@@ -36,7 +36,7 @@ public struct NginxTunnelVhostWriter {
         return "\n" + lines.map { "    " + $0 }.joined(separator: "\n")
     }
 
-    private func phpRouting(socket: URL) -> String {
+    private func phpRouting(socket: URL, localHost: String) -> String {
         """
             location / {
                 try_files $uri $uri/ /index.php?$query_string;
@@ -57,10 +57,10 @@ public struct NginxTunnelVhostWriter {
                 fastcgi_param GATEWAY_INTERFACE        CGI/1.1;
                 fastcgi_param SERVER_SOFTWARE          nginx;
                 fastcgi_param HTTPS                    on;
-                fastcgi_param HTTP_HOST                $http_host;
-                fastcgi_param SERVER_NAME              $http_host;
+                fastcgi_param HTTP_HOST                \(localHost);
+                fastcgi_param SERVER_NAME              \(localHost);
                 fastcgi_param SERVER_PORT              443;
-                fastcgi_param HTTP_X_FORWARDED_HOST    $http_host;
+                fastcgi_param HTTP_X_FORWARDED_HOST    \(localHost);
                 fastcgi_param HTTP_X_FORWARDED_PROTO   https;
                 fastcgi_param HTTP_X_FORWARDED_PORT    443;
                 fastcgi_param REMOTE_ADDR              $remote_addr;
