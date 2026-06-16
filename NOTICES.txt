@@ -1,5 +1,5 @@
 KDWarm — Third-Party Notices
-Generated: 2026-06-13T04:15:29Z
+Generated: 2026-06-16T14:30:07Z
 KDWarm is distributed free of charge as open-source software.
 
 == Redistributed components ==
@@ -27,10 +27,6 @@ KDWarm is distributed free of charge as open-source software.
 - Redis (>=7)
     License: SSPL-1.0 / RSALv2
     Source:  https://github.com/redis/redis
-- MongoDB Community Server (7.0)
-    License:   SSPL-1.0
-    Copyright: MongoDB, Inc.
-    Source:    https://fastdl.mongodb.org/osx/  (downloaded directly from MongoDB; not redistributed)
 - Node.js
     License: MIT (+deps)
     Source:  https://nodejs.org/dist/
