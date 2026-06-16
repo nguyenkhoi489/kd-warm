@@ -211,7 +211,7 @@ public final class TunnelManager: ObservableObject {
 
     private func waitForTunnelPort(_ port: Int) async -> Bool {
         for _ in 0..<20 {
-            if case .inUse = preflight.check(port: port) { return true }
+            if HealthChecker.tcpConnect(host: "127.0.0.1", port: port, timeout: 0.3) { return true }
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         return false

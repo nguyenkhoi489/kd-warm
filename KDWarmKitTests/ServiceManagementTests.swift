@@ -168,6 +168,38 @@ final class ServiceManagementTests: XCTestCase {
         XCTAssertEqual(outcome, .available)
     }
 
+    func testLoopbackListenerIsDetectedByConnectProbeNotWildcardBind() throws {
+        let listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(listenFD, 0)
+        defer { close(listenFD) }
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = 0
+        inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr)
+        let bound = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        XCTAssertEqual(bound, 0)
+        XCTAssertEqual(Darwin.listen(listenFD, 1), 0)
+
+        var assigned = sockaddr_in()
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        withUnsafeMutablePointer(to: &assigned) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                _ = getsockname(listenFD, $0, &len)
+            }
+        }
+        let port = Int(UInt16(bigEndian: assigned.sin_port))
+
+        XCTAssertTrue(HealthChecker.tcpConnect(host: "127.0.0.1", port: port, timeout: 0.5),
+                      "connect probe must detect a 127.0.0.1-bound listener")
+        XCTAssertEqual(PortPreflight().check(port: port), .available,
+                       "wildcard bind probe cannot see a loopback-only listener — hence the connect probe")
+    }
+
     // MARK: - ServiceInitializer
 
     func testIsInitializedDetectsMarkerAndEmptiness() throws {
