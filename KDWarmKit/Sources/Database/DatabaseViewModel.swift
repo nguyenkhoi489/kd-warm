@@ -143,10 +143,27 @@ public final class DatabaseViewModel: ObservableObject {
     // MARK: - Schema
 
     public func select(database: String) async {
-        guard let driver else { return }
-        let token = beginOperation()
+        guard prepareDatabaseSelection(database) else { return }
+        await loadTables(of: database)
+    }
+
+    public func selectDatabaseDeferred(_ database: String) {
+        guard prepareDatabaseSelection(database) else { return }
+        Task { await loadTables(of: database) }
+    }
+
+    @discardableResult
+    private func prepareDatabaseSelection(_ database: String) -> Bool {
+        guard driver != nil else { return false }
+        _ = beginOperation()
         selectedDatabase = database
         tables = []; selectedTable = nil; result = nil; resultError = nil; resultSource = .none
+        return true
+    }
+
+    private func loadTables(of database: String) async {
+        guard let driver else { return }
+        let token = generation
         do {
             let loaded = try await driver.listTables(database: database)
             guard token == generation else { return }

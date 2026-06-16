@@ -27,7 +27,9 @@ struct DatabaseSectionView: View {
             toolbar
             Divider()
             HSplitView {
-                ConnectionSidebarView()
+                if !inWindow {
+                    ConnectionSidebarView()
+                }
                 if isDocumentTrack {
                     documentTrack
                 } else {
@@ -42,7 +44,7 @@ struct DatabaseSectionView: View {
     @ViewBuilder
     private var relationalTrack: some View {
         if inWindow {
-            SchemaTreeView()
+            SchemaTreeView(onlySelectedDatabase: true)
             rightPane.frame(minWidth: 360)
         } else {
             SchemaTreeView(onSelectDatabase: openBrowserWindow)
