@@ -117,7 +117,11 @@ public actor TunnelController {
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
-        try? launch.bootout(label)
+        if userStopped { return }
+        if launch.isLoadedNow(label) {
+            onStatus(.activeUnverified(url))
+            return
+        }
         if !userStopped {
             onStatus(.error(connectivityDiagnosis()
                 ?? "Tunnel URL did not become reachable within \(Int(Self.probeTimeout))s. Check DNS/network and share again."))
@@ -136,10 +140,10 @@ public actor TunnelController {
                        "Environment has critical failures",
                        "Allow outbound QUIC traffic on port 7844"]
         if blocked.contains(where: log.contains) {
-            return "Cloudflare edge unreachable — your network appears to block cloudflared (QUIC/UDP 7844 or outbound TCP 7844). Try another network, or allow outbound port 7844."
+            return "Couldn't establish a Cloudflare tunnel — this network restricts cloudflared (UDP/QUIC, or outbound port 7844). It may still work on another network; try again or switch networks."
         }
         if log.contains("i/o timeout") || log.contains("no such host") {
-            return "Cloudflare edge unreachable — DNS or network connectivity to the tunnel edge failed. Check your internet connection and share again."
+            return "Couldn't establish a Cloudflare tunnel — DNS/network connectivity to the edge failed. Check your internet connection and share again."
         }
         return nil
     }

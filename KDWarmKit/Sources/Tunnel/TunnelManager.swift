@@ -131,7 +131,7 @@ public final class TunnelManager: ObservableObject {
             await controller.start(binary: binary, originPort: originPort, localDomain: site.domain) { [weak self] status in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    if case let .active(url) = status, let host = url.host {
+                    if let host = status.publicURL?.host {
                         self.applyPublicHost(site: site, port: originPort, publicHost: host)
                     }
                     self.updateStatus(siteID, status)

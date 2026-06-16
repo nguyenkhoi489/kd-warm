@@ -42,6 +42,12 @@ final class TunnelModelsTests: XCTestCase {
         XCTAssertFalse(TunnelStatus.error("x").isBusy)
     }
 
+    func testActiveUnverifiedExposesURLAndStaysBusy() {
+        let url = URL(string: "https://y.trycloudflare.com")!
+        XCTAssertEqual(TunnelStatus.activeUnverified(url).publicURL, url)
+        XCTAssertTrue(TunnelStatus.activeUnverified(url).isBusy)
+    }
+
     func testProbeKeepsDNSFailuresPending() {
         XCTAssertEqual(TunnelController.probeDecision(statusCode: nil, locationHost: nil,
                                                       publicHost: "demo.trycloudflare.com",

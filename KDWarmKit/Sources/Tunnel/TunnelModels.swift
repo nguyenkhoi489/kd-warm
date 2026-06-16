@@ -4,17 +4,20 @@ public enum TunnelStatus: Equatable, Sendable {
     case idle
     case starting
     case active(URL)
+    case activeUnverified(URL)
     case expired
     case error(String)
 
     public var publicURL: URL? {
-        if case let .active(url) = self { return url }
-        return nil
+        switch self {
+        case .active(let url), .activeUnverified(let url): return url
+        default: return nil
+        }
     }
 
     public var isBusy: Bool {
         switch self {
-        case .starting, .active: return true
+        case .starting, .active, .activeUnverified: return true
         case .idle, .expired, .error: return false
         }
     }
