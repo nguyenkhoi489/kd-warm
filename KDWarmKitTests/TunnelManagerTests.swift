@@ -74,4 +74,17 @@ final class TunnelManagerTests: XCTestCase {
         XCTAssertTrue(mgr.isSharing(a.id))
         mgr.stop(site: a.id)
     }
+
+    func testReapStaleJobsRemovesTunnelVhostFiles() throws {
+        let (mgr, root) = tempManager()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppSupportPaths(root: root)
+        try paths.ensureDirectoryTree()
+        let stale = paths.vhost("tunnel-\(UUID().uuidString)")
+        try "server {}".write(to: stale, atomically: true, encoding: .utf8)
+
+        mgr.reapStaleJobs()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+    }
 }

@@ -9,7 +9,10 @@ public final class TunnelManager: ObservableObject {
 
     private let paths: AppSupportPaths
     private let provisioner: CloudflaredBinaryProvisioner
+    private let generator: SiteConfigGenerator
+    private let tunnelWriter = NginxTunnelVhostWriter()
     private let preflight = PortPreflight()
+    private let nginx: NginxController
     private var controllers: [UUID: TunnelController] = [:]
     private var startTasks: [UUID: Task<Void, Never>] = [:]
     private var ttlTasks: [UUID: Task<Void, Never>] = [:]
@@ -17,6 +20,8 @@ public final class TunnelManager: ObservableObject {
     public init(paths: AppSupportPaths = AppSupportPaths()) {
         self.paths = paths
         self.provisioner = CloudflaredBinaryProvisioner(paths: paths)
+        self.generator = SiteConfigGenerator(paths: paths)
+        self.nginx = NginxController(paths: paths, agents: LaunchAgentManager(paths: paths))
     }
 
     public func isSharing(_ siteID: UUID) -> Bool {
@@ -30,9 +35,9 @@ public final class TunnelManager: ObservableObject {
         tearDown(site.id)
         sessions[site.id] = TunnelSession(siteID: site.id, domain: site.domain,
                                           secure: site.secure, status: .starting)
-        let siteID = site.id, domain = site.domain, secure = site.secure
+        let siteID = site.id
         startTasks[siteID] = Task { [weak self] in
-            await self?.runStart(siteID: siteID, domain: domain, secure: secure)
+            await self?.runStart(site: site)
         }
         scheduleTTL(siteID)
     }
@@ -44,6 +49,7 @@ public final class TunnelManager: ObservableObject {
 
     public func reapStaleJobs() {
         LaunchAgentManager(paths: paths).bootout(matchingPrefix: "com.kdwarm.tunnel.")
+        removeAllTunnelVhosts()
     }
 
     public func reconcile(sites: [Site]) {
@@ -74,6 +80,7 @@ public final class TunnelManager: ObservableObject {
         if let controller = controllers.removeValue(forKey: siteID) {
             Task { await controller.stop() }
         }
+        removeTunnelVhost(siteID)
     }
 
     private func scheduleTTL(_ siteID: UUID) {
@@ -92,7 +99,8 @@ public final class TunnelManager: ObservableObject {
         updateStatus(siteID, .expired)
     }
 
-    private func runStart(siteID: UUID, domain: String, secure: Bool) async {
+    private func runStart(site: Site) async {
+        let siteID = site.id
         if Task.isCancelled { clearStart(siteID); return }
         if case .available = preflight.check(port: 80) {
             finishStart(siteID, status: .error("Local server isn't running — start KDWarm's services first."))
@@ -100,11 +108,13 @@ public final class TunnelManager: ObservableObject {
         }
         do {
             if Task.isCancelled { clearStart(siteID); return }
+            let originPort = try prepareTunnelVhost(for: site)
+            if Task.isCancelled { clearStart(siteID); return }
             let binary = try await provisioner.ensureInstalled { _ in }
             if Task.isCancelled { clearStart(siteID); return }
             let controller = TunnelController(paths: paths, siteID: siteID)
             controllers[siteID] = controller
-            await controller.start(binary: binary, domain: domain, secure: secure) { [weak self] status in
+            await controller.start(binary: binary, originPort: originPort) { [weak self] status in
                 Task { @MainActor [weak self] in self?.updateStatus(siteID, status) }
             }
             startTasks[siteID] = nil
@@ -129,5 +139,51 @@ public final class TunnelManager: ObservableObject {
     private func clearStart(_ siteID: UUID) {
         tearDown(siteID)
         sessions[siteID] = nil
+    }
+
+    private func prepareTunnelVhost(for site: Site) throws -> Int {
+        let port = selectTunnelPort(site.id)
+        let socket = site.type == .php ? paths.phpFpmSocket(generator.effectivePHPVersion(site.phpVersion)) : nil
+        let config = tunnelWriter.vhost(site: site, port: port, phpFpmSocket: socket,
+                                        accessLog: paths.siteAccessLog(site.domain),
+                                        errorLog: paths.siteErrorLog(site.domain))
+        try config.write(to: tunnelVhostURL(site.id), atomically: true, encoding: .utf8)
+        try nginx.reload()
+        return port
+    }
+
+    private func removeTunnelVhost(_ siteID: UUID) {
+        let url = tunnelVhostURL(siteID)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+        try? nginx.reload()
+    }
+
+    private func tunnelVhostURL(_ siteID: UUID) -> URL {
+        paths.vhost("tunnel-\(siteID.uuidString)")
+    }
+
+    private func removeAllTunnelVhosts() {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: paths.sitesEnabled,
+                                                                       includingPropertiesForKeys: nil) else { return }
+        var removed = false
+        for file in files where file.lastPathComponent.hasPrefix("tunnel-") && file.pathExtension == "conf" {
+            try? FileManager.default.removeItem(at: file)
+            removed = true
+        }
+        if removed { try? nginx.reload() }
+    }
+
+    private func selectTunnelPort(_ siteID: UUID) -> Int {
+        let base = 41_000 + stablePortOffset(siteID)
+        for offset in 0..<1_000 {
+            let port = 41_000 + ((base - 41_000 + offset) % 10_000)
+            if case .available = preflight.check(port: port) { return port }
+        }
+        return base
+    }
+
+    private func stablePortOffset(_ siteID: UUID) -> Int {
+        siteID.uuidString.utf8.reduce(0) { ($0 &+ Int($1)) % 10_000 }
     }
 }

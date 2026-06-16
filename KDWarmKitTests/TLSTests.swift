@@ -38,6 +38,36 @@ final class NginxTLSVhostWriterTests: XCTestCase {
     }
 }
 
+final class NginxTunnelVhostWriterTests: XCTestCase {
+    private let writer = NginxTunnelVhostWriter()
+
+    func testTunnelPHPVhostKeepsPublicHostForFastCGI() {
+        let site = Site(name: "App", path: "/site", docroot: "/site/public",
+                        domain: "app.test", phpVersion: "8.4", type: .php, secure: true)
+        let v = writer.vhost(site: site, port: 45123,
+                             phpFpmSocket: URL(fileURLWithPath: "/run/php-fpm-8.4.sock"))
+
+        XCTAssertTrue(v.contains("listen 127.0.0.1:45123;"))
+        XCTAssertTrue(v.contains("server_name _;"))
+        XCTAssertFalse(v.contains("return 301"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTP_HOST                $http_host;"))
+        XCTAssertTrue(v.contains("fastcgi_param SERVER_NAME              $http_host;"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTP_X_FORWARDED_HOST    $http_host;"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTP_X_FORWARDED_PROTO   https;"))
+        XCTAssertTrue(v.contains("fastcgi_param HTTPS                    on;"))
+    }
+
+    func testTunnelStaticVhostUsesLoopbackPortWithoutFastCGI() {
+        let site = Site(name: "Static", path: "/site", docroot: "/site/public",
+                        domain: "static.test", phpVersion: "8.4", type: .staticSite)
+        let v = writer.vhost(site: site, port: 45124, phpFpmSocket: nil)
+
+        XCTAssertTrue(v.contains("listen 127.0.0.1:45124;"))
+        XCTAssertTrue(v.contains("try_files $uri $uri/ =404;"))
+        XCTAssertFalse(v.contains("fastcgi_pass"))
+    }
+}
+
 final class MkcertAndCertMinterTests: XCTestCase {
     func testMintArgsTargetCertAndKeyFiles() {
         let args = MkcertRunner.mintArgs(domain: "app.test",

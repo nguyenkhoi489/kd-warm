@@ -22,7 +22,7 @@ public actor TunnelController {
         self.launch = LaunchAgentManager(paths: paths)
     }
 
-    public func start(binary: URL, domain: String, secure: Bool,
+    public func start(binary: URL, originPort: Int,
                       onStatus: @escaping @Sendable (TunnelStatus) -> Void) async {
         if cancelled { return }
         userStopped = false
@@ -35,7 +35,7 @@ public actor TunnelController {
         fm.createFile(atPath: logURL.path, contents: nil)
         let spec = LaunchAgentSpec(
             label: label,
-            programArguments: [binary.path] + TunnelOrigin.cloudflaredArguments(secure: secure, domain: domain),
+            programArguments: [binary.path] + TunnelOrigin.cloudflaredArguments(port: originPort),
             stdoutPath: logURL.path,
             stderrPath: logURL.path,
             keepAliveOnCrash: false,

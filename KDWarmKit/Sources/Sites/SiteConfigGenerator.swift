@@ -95,7 +95,9 @@ public struct SiteConfigGenerator {
         guard let files = try? fm.contentsOfDirectory(at: paths.sitesEnabled,
                                                       includingPropertiesForKeys: nil) else { return false }
         var removed = false
-        for file in files where file.pathExtension == "conf" && !desired.contains(file.lastPathComponent) {
+        for file in files where file.pathExtension == "conf"
+            && !desired.contains(file.lastPathComponent)
+            && !file.lastPathComponent.hasPrefix("tunnel-") {
             try? fm.removeItem(at: file)
             removed = true
         }

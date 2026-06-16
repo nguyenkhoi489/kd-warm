@@ -20,17 +20,16 @@ final class TunnelModelsTests: XCTestCase {
         XCTAssertEqual(TrycloudflareURL.first(in: complete)?.host, "settlement-outdoor-ruth-hill.trycloudflare.com")
     }
 
-    func testNonSecureArgumentsUsePort80HTTP() {
-        let args = TunnelOrigin.cloudflaredArguments(secure: false, domain: "demo.test")
-        XCTAssertEqual(args, ["tunnel", "--url", "http://127.0.0.1:80",
-                              "--http-host-header", "demo.test", "--no-autoupdate"])
+    func testArgumentsUseDedicatedLoopbackOrigin() {
+        let args = TunnelOrigin.cloudflaredArguments(port: 45123)
+        XCTAssertEqual(args, ["tunnel", "--url", "http://127.0.0.1:45123", "--no-autoupdate"])
         XCTAssertFalse(args.contains("--no-tls-verify"))
     }
 
-    func testSecureArgumentsUsePort443HTTPSWithNoTLSVerify() {
-        let args = TunnelOrigin.cloudflaredArguments(secure: true, domain: "secure.test")
-        XCTAssertEqual(args, ["tunnel", "--url", "https://127.0.0.1:443", "--no-tls-verify",
-                              "--http-host-header", "secure.test", "--no-autoupdate"])
+    func testArgumentsDoNotOverridePublicHostHeader() {
+        let args = TunnelOrigin.cloudflaredArguments(port: 45123)
+        XCTAssertFalse(args.contains("--http-host-header"))
+        XCTAssertFalse(args.contains("secure.test"))
     }
 
     func testStatusPublicURLAndBusy() {

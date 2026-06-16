@@ -40,15 +40,12 @@ public struct TunnelSession: Identifiable, Sendable {
 }
 
 public enum TunnelOrigin {
-    public static func url(secure: Bool) -> String {
-        secure ? "https://127.0.0.1:443" : "http://127.0.0.1:80"
+    public static func url(port: Int) -> String {
+        "http://127.0.0.1:\(port)"
     }
 
-    public static func cloudflaredArguments(secure: Bool, domain: String) -> [String] {
-        var args = ["tunnel", "--url", url(secure: secure)]
-        if secure { args.append("--no-tls-verify") }
-        args += ["--http-host-header", domain, "--no-autoupdate"]
-        return args
+    public static func cloudflaredArguments(port: Int) -> [String] {
+        ["tunnel", "--url", url(port: port), "--no-autoupdate"]
     }
 }
 

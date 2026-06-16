@@ -113,6 +113,15 @@ final class SiteConfigGeneratorTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: paths.vhost("keep.test").path),
                       "a registered-but-skipped site must keep its prior vhost (not orphaned)")
     }
+
+    func testGeneratePreservesActiveTunnelVhosts() throws {
+        let (paths, root) = makePaths(); defer { try? fm.removeItem(at: root) }
+        let tunnel = paths.vhost("tunnel-\(UUID().uuidString)")
+        try "server {}".write(to: tunnel, atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(try SiteConfigGenerator(paths: paths).generate(sites: []))
+        XCTAssertTrue(fm.fileExists(atPath: tunnel.path))
+    }
 }
 
 final class BundledPHPTests: XCTestCase {

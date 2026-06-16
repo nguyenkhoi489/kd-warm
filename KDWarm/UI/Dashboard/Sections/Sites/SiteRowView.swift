@@ -18,7 +18,6 @@ struct SiteRowView: View {
 
     @State private var domainDraft: String
     @State private var domainError: String?
-    @State private var showShareConfirm = false
     @State private var didCopy = false
 
     init(site: Site, availableVersions: [String], canOpen: Bool,
@@ -88,21 +87,13 @@ struct SiteRowView: View {
         .padding(.vertical, KDSpacing.space2)
         .padding(.horizontal, KDSpacing.space2)
         .onChange(of: site.domain) { new in domainDraft = new; domainError = nil }
-        .confirmationDialog("Expose “\(site.name)” publicly?", isPresented: $showShareConfirm) {
-            Button("Expose Publicly", role: .destructive) { onToggleShare(true) }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("\(site.domain) → \(site.docroot)\n\nA public trycloudflare.com URL will forward to this site. "
-                + "Debug pages, profilers, and .env-backed secrets could be exposed to anyone with the link. "
-                + "The tunnel auto-stops after 30 minutes.")
-        }
     }
 
     @ViewBuilder
     private var shareControl: some View {
         switch shareStatus {
         case .idle, .expired:
-            Button { showShareConfirm = true } label: {
+            Button { onToggleShare(true) } label: {
                 Image(systemName: "antenna.radiowaves.left.and.right")
             }
             .buttonStyle(.borderless)
@@ -124,7 +115,7 @@ struct SiteRowView: View {
         case .error(let message):
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.KDStatus.error)
-                Button { showShareConfirm = true } label: { Image(systemName: "arrow.clockwise") }
+                Button { onToggleShare(true) } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.borderless).help(message)
             }
         }

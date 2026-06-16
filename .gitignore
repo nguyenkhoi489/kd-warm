@@ -103,6 +103,10 @@ plans/*
 
 docs/
 
+.agents/
+
+.codex/
+
 release-manifest.json
 
 .repomixignore
