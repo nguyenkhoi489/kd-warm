@@ -10,6 +10,8 @@ public protocol RelationalDriver: DatabaseDriver {
 
     func columns(database: String, table: String) async throws -> [ColumnInfo]
 
+    func allColumns(database: String) async throws -> [String: [String]]
+
     func indexes(database: String, table: String) async throws -> [IndexInfo]
 
     func query(_ sql: String, database: String?) async throws -> QueryResult

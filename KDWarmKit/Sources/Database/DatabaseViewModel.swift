@@ -36,6 +36,8 @@ public final class DatabaseViewModel: ObservableObject {
 
     @Published public internal(set) var currentIndexes: [IndexInfo] = []
 
+    @Published public private(set) var schemaCatalog: SchemaCatalog = .empty
+
     @Published public private(set) var pendingDangerousSQL: String?
 
     /// Composed DDL awaiting user confirmation. The UI shows it verbatim; nothing runs until confirmed.
@@ -111,6 +113,7 @@ public final class DatabaseViewModel: ObservableObject {
         databases = []; tables = []; selectedDatabase = nil; selectedTable = nil
         result = nil; resultError = nil; resultSource = .none
         currentColumns = []; currentIndexes = []
+        schemaCatalog = .empty
         pageOffset = 0; hasMorePages = false; isBusy = false
     }
 
@@ -119,6 +122,7 @@ public final class DatabaseViewModel: ObservableObject {
         selectedProfile = profile
         databases = []; tables = []; selectedDatabase = nil; selectedTable = nil
         result = nil; resultError = nil; resultSource = .none; pageOffset = 0; hasMorePages = false
+        schemaCatalog = .empty
         connection = .connecting
 
         guard let driver = makeDriver(profile, passwordFor(profile)) else {
@@ -158,6 +162,7 @@ public final class DatabaseViewModel: ObservableObject {
         _ = beginOperation()
         selectedDatabase = database
         tables = []; selectedTable = nil; result = nil; resultError = nil; resultSource = .none
+        schemaCatalog = .empty
         return true
     }
 
@@ -173,6 +178,15 @@ public final class DatabaseViewModel: ObservableObject {
             resultError = Self.asDatabaseError(error).message
         }
         if token == generation { isBusy = false }
+        await buildSchemaCatalog(of: database, token: token)
+    }
+
+    private func buildSchemaCatalog(of database: String, token: Int) async {
+        guard let driver else { return }
+        let tableNames = tables.map(\.name)
+        let map = (try? await driver.allColumns(database: database)) ?? [:]
+        guard token == generation else { return }
+        schemaCatalog = SchemaCatalog(tables: tableNames, columnsByTable: map)
     }
 
     public func select(table: TableInfo) async {
