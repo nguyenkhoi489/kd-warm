@@ -34,6 +34,22 @@ extension PostgresDriver {
         }
     }
 
+    public func allColumns(database: String) async throws -> [String: [String]] {
+        var binds = PostgresBindings()
+        binds.append(database)
+        let result = try await runQuery(PostgresQuery(unsafeSQL: """
+        SELECT c.table_name, c.column_name FROM information_schema.columns c \
+        WHERE c.table_schema = $1 ORDER BY c.table_name, c.ordinal_position
+        """, binds: binds))
+        var map: [String: [String]] = [:]
+        for row in result.rows {
+            guard row.count >= 2, let table = row[0].displayText, let column = row[1].displayText
+            else { continue }
+            map[table, default: []].append(column)
+        }
+        return map
+    }
+
     public func indexes(database: String, table: String) async throws -> [IndexInfo] {
         var binds = PostgresBindings()
         binds.append(database)

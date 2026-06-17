@@ -5,6 +5,22 @@ import Foundation
 /// rows from `information_schema.STATISTICS` into one `IndexInfo` per index name.
 extension MySQLDriver {
 
+    public func allColumns(database: String) async throws -> [String: [String]] {
+        let sql = """
+        SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS \
+        WHERE TABLE_SCHEMA = \(try MySQLErrorMapper.quoteLiteral(database)) \
+        ORDER BY TABLE_NAME, ORDINAL_POSITION
+        """
+        let result = try await query(sql, database: nil)
+        var map: [String: [String]] = [:]
+        for row in result.rows {
+            guard row.count >= 2, let table = row[0].displayText, let column = row[1].displayText
+            else { continue }
+            map[table, default: []].append(column)
+        }
+        return map
+    }
+
     public func indexes(database: String, table: String) async throws -> [IndexInfo] {
         let sql = """
         SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM information_schema.STATISTICS \

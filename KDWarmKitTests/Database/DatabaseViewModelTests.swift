@@ -129,6 +129,34 @@ final class DatabaseViewModelTests: XCTestCase {
         XCTAssertEqual(driver.paginateCalls.map(\.offset), [0, 10, 0])
     }
 
+    func testSelectingDatabaseBuildsSchemaCatalog() async {
+        let driver = StubDriver(tag: "a")
+        driver.columnsResult = [
+            ColumnInfo(name: "id", dataType: "int", isNullable: false, isPrimaryKey: true),
+            ColumnInfo(name: "name", dataType: "text", isNullable: true, isPrimaryKey: false),
+        ]
+        let vm = makeVM(driver)
+        await vm.select(profile: .managedMySQL)
+        await vm.select(database: "db_a")
+
+        XCTAssertEqual(vm.schemaCatalog.tables, ["users", "orders"])
+        XCTAssertEqual(vm.schemaCatalog.columns(of: "users"), ["id", "name"])
+        XCTAssertEqual(vm.schemaCatalog.columns(of: "orders"), ["id", "name"])
+    }
+
+    func testReselectingConnectionResetsSchemaCatalog() async {
+        let driver = StubDriver(tag: "a")
+        driver.columnsResult = [ColumnInfo(name: "id", dataType: "int",
+                                           isNullable: false, isPrimaryKey: true)]
+        let vm = makeVM(driver)
+        await vm.select(profile: .managedMySQL)
+        await vm.select(database: "db_a")
+        XCTAssertFalse(vm.schemaCatalog.tables.isEmpty)
+
+        await vm.select(profile: .managedMySQL)
+        XCTAssertTrue(vm.schemaCatalog.tables.isEmpty)
+    }
+
     func testUnsupportedEngineFailsCleanly() async {
         // Factory returns nil for a non-MySQL kind → an explicit connection failure, not a crash.
         let vm = DatabaseViewModel(makeDriver: { _, _ in nil }, passwordFor: { _ in nil })

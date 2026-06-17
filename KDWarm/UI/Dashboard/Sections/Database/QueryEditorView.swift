@@ -45,8 +45,9 @@ struct QueryEditorView: View {
             }
             .padding(KDSpacing.space2)
             Divider()
-            TextEditor(text: $sql)
-                .font(KDFont.mono)
+            SQLCodeEditor(text: $sql,
+                          catalog: vm.schemaCatalog,
+                          keywords: SQLKeywords.forKind(vm.selectedProfile?.kind ?? .mysql))
                 .frame(minHeight: 80)
         }
     }
