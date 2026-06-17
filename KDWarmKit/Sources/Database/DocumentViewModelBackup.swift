@@ -38,13 +38,14 @@ public extension DocumentViewModel {
         backupStatus = .running("Listing databases…")
         let names: [String]
         do {
-            names = try await driver.listDatabases().map(\.name)
+            let all = try await driver.listDatabases().map(\.name)
+            names = BackupSession.userDatabaseNames(all, for: profile.kind)
         } catch {
             backupStatus = .failed(Self.asDatabaseError(error).message)
             return nil
         }
         guard !names.isEmpty else {
-            backupStatus = .failed("No databases to back up.")
+            backupStatus = .failed("No user databases to back up (only system databases were found).")
             return nil
         }
         backupStatus = .running("Backing up \(names.count) databases…")

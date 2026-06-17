@@ -92,4 +92,19 @@ public struct BackupSession: Sendable {
     static func majorVersion(_ version: String) -> String {
         version.split(whereSeparator: { $0 == "." || $0 == "-" }).first.map(String.init) ?? version
     }
+
+    /// Drop the engine's system schemas from a "back up all databases" enumeration. mysqldump
+    /// refuses `information_schema` outright; Postgres templates aren't connectable; Mongo's
+    /// `admin/local/config` carry server state that shouldn't be restored over a user DB. Each set
+    /// is the documented system-database list for that engine — no heuristic guess.
+    public static func userDatabaseNames(_ names: [String], for kind: DatabaseKind) -> [String] {
+        let system: Set<String>
+        switch kind {
+        case .mysql:    system = ["information_schema", "performance_schema", "mysql", "sys"]
+        case .postgres: system = ["template0", "template1"]
+        case .mongodb:  system = ["admin", "local", "config"]
+        case .sqlite:   system = []
+        }
+        return names.filter { !system.contains($0.lowercased()) }
+    }
 }

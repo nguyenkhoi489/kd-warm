@@ -90,4 +90,30 @@ final class BackupProviderValidationTests: XCTestCase {
         XCTAssertEqual(BackupSession.majorVersion("9.6.0"), "9")
         XCTAssertEqual(BackupSession.majorVersion("100.10.0"), "100")
     }
+
+    // MARK: - userDatabaseNames filter (prevents mysqldump on information_schema)
+
+    func testUserDatabaseNamesDropsMySQLSystemSchemas() {
+        let all = ["information_schema", "performance_schema", "mysql", "sys", "app", "blog"]
+        XCTAssertEqual(BackupSession.userDatabaseNames(all, for: .mysql), ["app", "blog"])
+    }
+
+    func testUserDatabaseNamesDropsPostgresTemplates() {
+        let all = ["template0", "template1", "postgres", "shop"]
+        XCTAssertEqual(BackupSession.userDatabaseNames(all, for: .postgres), ["postgres", "shop"])
+    }
+
+    func testUserDatabaseNamesDropsMongoSystemDBs() {
+        let all = ["admin", "local", "config", "myapp"]
+        XCTAssertEqual(BackupSession.userDatabaseNames(all, for: .mongodb), ["myapp"])
+    }
+
+    func testUserDatabaseNamesPassesSQLiteThrough() {
+        XCTAssertEqual(BackupSession.userDatabaseNames(["main"], for: .sqlite), ["main"])
+    }
+
+    func testUserDatabaseNamesIsCaseInsensitive() {
+        XCTAssertEqual(BackupSession.userDatabaseNames(["INFORMATION_SCHEMA", "app"], for: .mysql),
+                       ["app"])
+    }
 }
