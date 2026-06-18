@@ -2,16 +2,18 @@ import Foundation
 
 public struct WordPressInstaller: SiteInstaller {
     private let php: URL
+    private let phpIni: URL?
     private let wpCliPhar: URL
 
-    public init(php: URL, wpCliPhar: URL) {
+    public init(php: URL, phpIni: URL? = nil, wpCliPhar: URL) {
         self.php = php
+        self.phpIni = phpIni
         self.wpCliPhar = wpCliPhar
     }
 
     public func scaffold(into folder: URL, request: NewSiteRequest,
                          emit: @Sendable (String) -> Void) async throws {
-        let runner = InstallCommandRunner(php: php)
+        let runner = InstallCommandRunner(php: php, phpIni: phpIni)
         let path = "--path=\(folder.path)"
         let database = request.databaseName ?? request.name
 

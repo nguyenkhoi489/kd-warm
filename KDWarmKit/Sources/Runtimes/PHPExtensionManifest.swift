@@ -26,7 +26,7 @@ extension PHPExtensionCatalog {
         ("memcached", "Memcached", .cache), ("redis", "Redis", .cache), ("exif", "EXIF", .graphics),
         ("intl", "Intl", .intl), ("xsl", "XSL", .data), ("mbstring", "Mbstring", .data),
         ("xlswriter", "XLSWriter", .data), ("pgsql", "pgSQL", .database), ("ssh2", "SSH2", .network),
-        ("xhprof", "XHProf", .debugger), ("protobuf", "Protobuf", .data),
+        ("xhprof", "XHProf", .debugger), ("protobuf", "Protobuf", .data), ("xmlwriter", "XMLWriter", .data),
         ("pdo_pgsql", "PDO pgSQL", .database), ("readline", "Readline", .utility),
         ("snmp", "SNMP", .network), ("ldap", "LDAP", .network), ("bz2", "Bzip2", .data),
         ("sysvshm", "SysV SHM", .utility), ("calendar", "Calendar", .utility), ("gmp", "GMP", .data),

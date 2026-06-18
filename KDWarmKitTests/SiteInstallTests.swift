@@ -74,6 +74,34 @@ final class SiteInstallTests: XCTestCase {
         XCTAssertThrowsError(try LaravelInstaller.configureEnv(in: folder, request: request(kind: .laravel)))
     }
 
+    func testLaravelCreateProjectArgsIgnoreMissingXMLWriterOnly() {
+        let missing = LaravelInstaller.createProjectArgs(composerPhar: "/x/composer.phar",
+                                                         name: "demo",
+                                                         loadedModules: ["xml", "dom"])
+        XCTAssertTrue(missing.contains("--ignore-platform-req=ext-xmlwriter"))
+
+        let present = LaravelInstaller.createProjectArgs(composerPhar: "/x/composer.phar",
+                                                         name: "demo",
+                                                         loadedModules: ["xmlwriter"])
+        XCTAssertFalse(present.contains("--ignore-platform-req=ext-xmlwriter"))
+    }
+
+    func testInstallCommandRunnerUsesManagedPHPIniWhenPresent() throws {
+        let phpIni = tmp.appendingPathComponent("php.ini")
+        try "memory_limit = 512M\n".write(to: phpIni, atomically: true, encoding: .utf8)
+
+        let runner = InstallCommandRunner(php: URL(fileURLWithPath: "/x/php"), phpIni: phpIni)
+        XCTAssertEqual(runner.phpArguments(["/x/wp.phar", "core", "download"]),
+                       ["-c", phpIni.path, "/x/wp.phar", "core", "download"])
+    }
+
+    func testInstallCommandRunnerSkipsMissingManagedPHPIni() {
+        let phpIni = tmp.appendingPathComponent("missing.ini")
+        let runner = InstallCommandRunner(php: URL(fileURLWithPath: "/x/php"), phpIni: phpIni)
+        XCTAssertEqual(runner.phpArguments(["/x/composer.phar", "create-project"]),
+                       ["/x/composer.phar", "create-project"])
+    }
+
     func testPharProvisionerRejectsUnverifiedCachedPhar() throws {
         let paths = AppSupportPaths(root: tmp.appendingPathComponent("as"))
         let provisioner = PharProvisioner.wpCli(paths: paths)

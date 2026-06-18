@@ -58,6 +58,12 @@ final class PHPExtensionCatalogTests: XCTestCase {
         XCTAssertEqual(catalog.status(redis, phpVersion: "8.4", installed: [], soOnDisk: false), .builtIn)
     }
 
+    func testXMLWriterIsTrackedAsBuiltIn() {
+        let xmlwriter = PHPExtensionCatalog.descriptor("xmlwriter")!
+        XCTAssertTrue(xmlwriter.isBuiltIn)
+        XCTAssertEqual(catalog.status(xmlwriter, phpVersion: "8.4", installed: [], soOnDisk: false), .builtIn)
+    }
+
     func testStatusOptionalInstalledWhenLoaded() {
         let apcu = PHPExtensionCatalog.descriptor("apcu")!
         XCTAssertEqual(catalog.status(apcu, phpVersion: "8.4", installed: ["apcu"], soOnDisk: true), .installed)

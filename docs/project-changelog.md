@@ -1,5 +1,16 @@
 # KDWarm — Changelog
 
+## [Unreleased] — 2026-06-18 — Create Site Installer Fixes
+
+### Fixed
+- **WordPress site creation** — create-site PHP subprocesses now use KTStack's managed per-version `php.ini`, so WP-CLI sees the configured memory limit instead of raw PHP's `128M` default.
+- **Laravel site creation runtime compatibility** — current runtimes missing `xmlwriter` bypass only `ext-xmlwriter` during scaffold, while static PHP build definition and extension catalog now include built-in `xmlwriter` for rebuilt runtime artifacts.
+
+### Testing
+- `xcodebuild -project KDWarm.xcodeproj -scheme KDWarmKit-Tests -destination 'platform=macOS' test` — 534 tests, 30 skipped, 0 failures.
+- `xcodebuild -project KDWarm.xcodeproj -scheme KDWarm -destination 'platform=macOS' -configuration Debug build` — build succeeded.
+- `bash -n scripts/build-php-static.sh` — syntax passed.
+
 ## [0.6.9] — 2026-06-18
 
 ### Added

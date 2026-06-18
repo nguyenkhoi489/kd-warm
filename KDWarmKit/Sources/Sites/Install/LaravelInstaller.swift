@@ -2,21 +2,25 @@ import Foundation
 
 public struct LaravelInstaller: SiteInstaller {
     private let php: URL
+    private let phpIni: URL?
     private let composerPhar: URL
 
-    public init(php: URL, composerPhar: URL) {
+    public init(php: URL, phpIni: URL? = nil, composerPhar: URL) {
         self.php = php
+        self.phpIni = phpIni
         self.composerPhar = composerPhar
     }
 
     public func scaffold(into folder: URL, request: NewSiteRequest,
                          emit: @Sendable (String) -> Void) async throws {
-        let runner = InstallCommandRunner(php: php)
+        let runner = InstallCommandRunner(php: php, phpIni: phpIni)
         let parent = folder.deletingLastPathComponent()
 
         emit("Creating Laravel project (composer)…")
-        _ = try runner.runPHP([composerPhar.path, "create-project", "laravel/laravel",
-                               request.name, "--no-interaction"], cwd: parent)
+        let modules = try runner.loadedModules(cwd: parent)
+        _ = try runner.runPHP(Self.createProjectArgs(composerPhar: composerPhar.path,
+                                                     name: request.name,
+                                                     loadedModules: modules), cwd: parent)
 
         emit("Configuring .env…")
         try Self.configureEnv(in: folder, request: request)
@@ -57,5 +61,13 @@ public struct LaravelInstaller: SiteInstaller {
             lines.append("\(key)=\(value)")
         }
         try lines.joined(separator: "\n").data(using: .utf8)!.write(to: env, options: .atomic)
+    }
+
+    static func createProjectArgs(composerPhar: String, name: String, loadedModules: Set<String>) -> [String] {
+        var args = [composerPhar, "create-project", "laravel/laravel", name, "--no-interaction"]
+        if !loadedModules.contains("xmlwriter") {
+            args.append("--ignore-platform-req=ext-xmlwriter")
+        }
+        return args
     }
 }

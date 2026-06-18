@@ -9,10 +9,25 @@ struct InstallCommandRunner: Sendable {
     }
 
     let php: URL
+    let phpIni: URL?
+
+    init(php: URL, phpIni: URL? = nil) {
+        self.php = php
+        self.phpIni = phpIni
+    }
 
     @discardableResult
     func runPHP(_ args: [String], cwd: URL, stdin: String? = nil) throws -> String {
-        try run(php, args, cwd: cwd, stdin: stdin)
+        try run(php, phpArguments(args), cwd: cwd, stdin: stdin)
+    }
+
+    func phpArguments(_ args: [String]) -> [String] {
+        guard let phpIni, FileManager.default.fileExists(atPath: phpIni.path) else { return args }
+        return ["-c", phpIni.path] + args
+    }
+
+    func loadedModules(cwd: URL) throws -> Set<String> {
+        Set(PHPModules.parse(try runPHP(["-m"], cwd: cwd)))
     }
 
     @discardableResult

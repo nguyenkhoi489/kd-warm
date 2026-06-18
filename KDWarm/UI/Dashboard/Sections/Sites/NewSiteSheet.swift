@@ -24,12 +24,14 @@ final class NewSiteModel: ObservableObject {
         events = []
         let paths = AppSupportPaths()
         let php = paths.phpBinary(version: request.phpVersion)
+        let phpIni = paths.phpIni(version: request.phpVersion)
         let mysql = MySQLController(paths: paths, agents: LaunchAgentManager(paths: paths))
         let service = SiteInstallService(database: DatabaseProvisioner(ensureEngine: { try await mysql.start() }))
 
         task = Task {
             do {
-                let installer = try await buildInstaller(request: request, php: php, paths: paths)
+                try PHPIniStore(paths: paths).ensureSeeded(version: request.phpVersion)
+                let installer = try await buildInstaller(request: request, php: php, phpIni: phpIni, paths: paths)
                 let site = try await service.install(request, installer: installer, register: { folder in
                     try await MainActor.run { try registry.add(folder: folder, phpVersion: request.phpVersion) }
                 }, emit: { event in
@@ -53,14 +55,14 @@ final class NewSiteModel: ObservableObject {
         events = []
     }
 
-    private func buildInstaller(request: NewSiteRequest, php: URL, paths: AppSupportPaths) async throws -> SiteInstaller {
+    private func buildInstaller(request: NewSiteRequest, php: URL, phpIni: URL, paths: AppSupportPaths) async throws -> SiteInstaller {
         switch request.kind {
         case .wordpress:
             let phar = try await PharProvisioner.wpCli(paths: paths).provision()
-            return WordPressInstaller(php: php, wpCliPhar: phar)
+            return WordPressInstaller(php: php, phpIni: phpIni, wpCliPhar: phar)
         case .laravel:
             let phar = try await ComposerProvisioner(paths: paths).provision()
-            return LaravelInstaller(php: php, composerPhar: phar)
+            return LaravelInstaller(php: php, phpIni: phpIni, composerPhar: phar)
         }
     }
 }
