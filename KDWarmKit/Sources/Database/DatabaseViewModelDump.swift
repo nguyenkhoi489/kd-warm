@@ -50,6 +50,20 @@ public extension DatabaseViewModel {
 
     func clearDumpStatus() { dumpStatus = .idle }
 
+    func exportResultCSV(to output: URL) {
+        guard let result else { return }
+        exportResultCSV(result, to: output)
+    }
+
+    func exportResultCSV(_ result: QueryResult, to output: URL) {
+        do {
+            try Data(QueryResultTextSerializer.csv(result).utf8).write(to: output, options: .atomic)
+            dumpStatus = .done("Exported \(result.rowCount) rows to \(output.lastPathComponent).")
+        } catch {
+            dumpStatus = .failed(Self.asDatabaseError(error).message)
+        }
+    }
+
     /// Export the selected database (or a single `table`) to `output`.
     func exportDatabase(to output: URL, table: String? = nil) async {
         guard let profile = selectedProfile, let database = selectedDatabase else { return }

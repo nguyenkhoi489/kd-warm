@@ -62,6 +62,9 @@ struct TableDataView: View {
             }
             Spacer()
             if vm.canEditRows { crudButtons }
+            if vm.isTableBrowse {
+                CSVExportButton(defaultName: vm.selectedTable?.name ?? "table")
+            }
             pager
         }
         .padding(KDSpacing.space2)
