@@ -54,6 +54,35 @@ final class DumpServiceTests: XCTestCase {
                                                              port: 3306, password: "bad\npass"))
     }
 
+    func testDefaultsContentEmitsSSLModeFromTLSMode() throws {
+        let pairs: [(TLSMode, String)] = [
+            (.disable, "DISABLED"), (.prefer, "PREFERRED"),
+            (.require, "REQUIRED"), (.verifyFull, "VERIFY_IDENTITY"),
+        ]
+        for (mode, expected) in pairs {
+            let content = try DumpService.defaultsContent(user: "root", host: "db.example.com",
+                                                          port: 3306, password: nil, tlsMode: mode)
+            XCTAssertTrue(content.contains("ssl-mode=\(expected)"),
+                          "expected ssl-mode=\(expected) for \(mode)")
+        }
+    }
+
+    func testEnsureDumpNotEmptyThrowsOnZeroBytes() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kdwarm-empty-dump-\(UUID().uuidString).sql")
+        FileManager.default.createFile(atPath: url.path, contents: Data())
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertThrowsError(try DumpService.ensureDumpNotEmpty(at: url, database: "app"))
+    }
+
+    func testEnsureDumpNotEmptyPassesOnContent() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kdwarm-dump-\(UUID().uuidString).sql")
+        try "-- dump\nCREATE TABLE t(id INT);\n".write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertNoThrow(try DumpService.ensureDumpNotEmpty(at: url, database: "app"))
+    }
+
     func testDefaultsFileIsWrittenMode0600() throws {
         let url = try DumpService.writeDefaultsFile(content: "[client]\nuser=root\n")
         defer { try? FileManager.default.removeItem(at: url) }
@@ -71,7 +100,8 @@ final class DumpServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)))
+        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)),
+                                  systemToolSearchPaths: [])
         XCTAssertFalse(service.isEngineInstalled)
 
         do {
@@ -90,7 +120,8 @@ final class DumpServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)))
+        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)),
+                                  systemToolSearchPaths: [])
         do {
             try await service.createDatabase(profile: .managedMySQL, password: nil, database: "app")
             XCTFail("expected engineNotInstalled")

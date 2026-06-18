@@ -69,6 +69,7 @@ struct DatabaseSectionView: View {
                 onDelete: { documentVM.deleteBackup($0, session: backupSession) },
                 onExport: { documentVM.exportBackup($0, to: $1, session: backupSession) },
                 onImportFailed: { documentVM.failBackupStatus("Import failed: \($0)") },
+                onInstallTools: nil,
                 restoreSheet: { set in
                     AnyView(RestoreSheet(set: set, isReadOnly: documentVM.isReadOnlyConnection) { db, target in
                         _ = await documentVM.restoreBackup(set, database: db, target: target,
@@ -96,6 +97,7 @@ struct DatabaseSectionView: View {
                 onDelete: { vm.deleteBackup($0, session: backupSession) },
                 onExport: { vm.exportBackup($0, to: $1, session: backupSession) },
                 onImportFailed: { vm.failBackupStatus("Import failed: \($0)") },
+                onInstallTools: installToolsAction(for: vm.selectedProfile?.kind),
                 restoreSheet: { set in
                     AnyView(RestoreSheet(set: set, isReadOnly: vm.isReadOnlyConnection) { db, target in
                         _ = await vm.restoreBackup(set, database: db, target: target,
@@ -187,6 +189,14 @@ struct DatabaseSectionView: View {
             }
         }
         .padding(KDSpacing.space3)
+    }
+
+    private func installToolsAction(for kind: DatabaseKind?) -> (@MainActor () -> Void)? {
+        switch kind {
+        case .mysql:    return { services.install(.mysql) }
+        case .postgres: return { services.install(.postgres) }
+        default:        return nil
+        }
     }
 
     private func showBackups() {

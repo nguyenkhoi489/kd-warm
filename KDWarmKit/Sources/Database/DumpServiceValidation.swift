@@ -44,15 +44,36 @@ extension DumpService {
 
     /// Build the `[client]` section for a `--defaults-extra-file`. User/host are validated; a newline
     /// in the password is rejected because the ini format is line-delimited and couldn't carry it.
-    static func defaultsContent(user: String, host: String, port: Int, password: String?) throws -> String {
+    static func defaultsContent(user: String, host: String, port: Int, password: String?,
+                                tlsMode: TLSMode = .prefer) throws -> String {
         try validateIdentifier(user, label: "user", maxLength: 255)
         try validateHost(host)
         if let password, password.contains(where: { $0 == "\n" || $0 == "\r" }) {
             throw DatabaseError.connection("Password contains a newline, which the client config can't carry.")
         }
-        var lines = ["[client]", "user=\(user)", "host=\(host)", "port=\(port)"]
+        var lines = ["[client]", "user=\(user)", "host=\(host)", "port=\(port)",
+                     "ssl-mode=\(sslMode(for: tlsMode))"]
         if let password { lines.append("password=\(password)") }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    static func sslMode(for mode: TLSMode) -> String {
+        switch mode {
+        case .disable:    return "DISABLED"
+        case .prefer:     return "PREFERRED"
+        case .require:    return "REQUIRED"
+        case .verifyFull: return "VERIFY_IDENTITY"
+        }
+    }
+
+    /// mysqldump exits 0 but writes nothing when the account lacks privileges on every table; a
+    /// zero-byte artifact would otherwise be stored as a valid-looking but useless backup.
+    static func ensureDumpNotEmpty(at url: URL, database: String) throws {
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        guard size > 0 else {
+            throw DatabaseError.connection(
+                "mysqldump produced an empty file for \"\(database)\"; the account may lack privileges on its tables.")
+        }
     }
 
     /// Write the defaults file created mode 0600 from the start (not chmod-after) so the password is

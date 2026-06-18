@@ -19,19 +19,63 @@ final class BackupProviderValidationTests: XCTestCase {
         } catch {}
     }
 
-    /// F15: MySQL provider reports unavailable when the catalog has no installed engine, even
-    /// though the binary URL would be returned. The factory must surface a clear reason in that case.
+    /// MySQL provider reports unavailable when neither the managed catalog nor the system search
+    /// paths hold the client tools. System paths are pinned empty so a Homebrew install on the dev
+    /// machine can't mask the assertion.
     func testMySQLProviderUnavailableWhenEngineMissing() async throws {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("kdwarm-empty-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)))
+        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)),
+                                  systemToolSearchPaths: [])
         let provider = MySQLBackupProvider(dumpService: service)
         XCTAssertFalse(provider.isAvailable)
+        XCTAssertFalse(service.isEngineInstalled)
     }
 
-    /// F15: Postgres runner must check executable existence per binary, not just the catalog URL.
+    func testMySQLBackupAvailableViaSystemTools() async throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kdwarm-empty-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let stubDir = try Self.makeStubToolDir(tools: ["mysqldump", "mysql"])
+        defer { try? FileManager.default.removeItem(at: stubDir) }
+
+        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)),
+                                  systemToolSearchPaths: [stubDir])
+        XCTAssertTrue(MySQLBackupProvider(dumpService: service).isAvailable)
+        XCTAssertTrue(service.isEngineInstalled)
+        XCTAssertTrue(service.requiredBinariesPresent)
+    }
+
+    func testRequiredBinariesPresentNeedsBothClients() async throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kdwarm-empty-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let stubDir = try Self.makeStubToolDir(tools: ["mysqldump"])
+        defer { try? FileManager.default.removeItem(at: stubDir) }
+
+        let service = DumpService(catalog: ServiceBinaryCatalog(paths: AppSupportPaths(root: tmp)),
+                                  systemToolSearchPaths: [stubDir])
+        XCTAssertTrue(service.isEngineInstalled)
+        XCTAssertFalse(service.requiredBinariesPresent)
+    }
+
+    private static func makeStubToolDir(tools: [String]) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kdwarm-tools-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for tool in tools {
+            let url = dir.appendingPathComponent(tool)
+            try "#!/bin/sh\n".write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        }
+        return dir
+    }
+
+    /// Postgres runner must check executable existence per binary, not just the catalog URL.
     func testPostgresRunnerUnavailableWhenBinariesMissing() async throws {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("kdwarm-empty-\(UUID().uuidString)", isDirectory: true)
@@ -58,7 +102,7 @@ final class BackupProviderValidationTests: XCTestCase {
         }
     }
 
-    // MARK: - F13: version-skew gate
+    // MARK: - version-skew gate
 
     func testSessionRefusesIncompatibleMajorVersion() async throws {
         let tmp = FileManager.default.temporaryDirectory

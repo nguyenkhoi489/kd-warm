@@ -22,6 +22,7 @@ struct BackupLibraryView<VM: AnyObject>: View {
     let onDelete: @MainActor (BackupSet) -> Void
     let onExport: @MainActor (BackupSet, URL) -> Void
     let onImportFailed: @MainActor (String) -> Void
+    let onInstallTools: (@MainActor () -> Void)?
     let restoreSheet: (BackupSet) -> AnyView
 
     @State private var sets: [BackupSet] = []
@@ -81,17 +82,29 @@ struct BackupLibraryView<VM: AnyObject>: View {
         VStack(alignment: .leading, spacing: KDSpacing.space2) {
             Text("Create backup").font(KDFont.headline)
             if let reason = unavailableReason {
-                Label(reason, systemImage: "exclamationmark.circle")
-                    .font(KDFont.footnote).foregroundStyle(.secondary)
-            } else {
                 HStack(spacing: KDSpacing.space2) {
-                    Button("Back up \"\(selectedDatabase ?? "current")\"") { onBackupCurrent() }
-                        .disabled(!canBackup || selectedDatabase == nil || backupStatus.isRunning)
-                    Button("Back up all databases") { onBackupAll() }
-                        .disabled(!canBackup || backupStatus.isRunning)
-                    Button("Import set…") { importSet() }
+                    Label(reason, systemImage: "exclamationmark.circle")
+                        .font(KDFont.footnote).foregroundStyle(.secondary)
+                    if let onInstallTools, let title = installToolsTitle {
+                        Button(title) { onInstallTools() }
+                    }
                 }
             }
+            HStack(spacing: KDSpacing.space2) {
+                Button("Back up \"\(selectedDatabase ?? "current")\"") { onBackupCurrent() }
+                    .disabled(!canBackup || selectedDatabase == nil || backupStatus.isRunning)
+                Button("Back up all databases") { onBackupAll() }
+                    .disabled(!canBackup || backupStatus.isRunning)
+                Button("Import set…") { importSet() }
+            }
+        }
+    }
+
+    private var installToolsTitle: String? {
+        switch activeProfileKind {
+        case .mysql:    return "Install MySQL…"
+        case .postgres: return "Install PostgreSQL…"
+        default:        return nil
         }
     }
 

@@ -1,20 +1,47 @@
 import Foundation
 
-/// Export/import MySQL databases via the on-demand `mysqldump`/`mysql` clients (resolved through the
-/// installed managed engine, so external hosts use those binaries too). The Process work runs off the
-/// main thread so the UI never blocks. Security: see `DumpServiceValidation` — creds via a 0600
-/// defaults file, identifiers allowlist-validated, user values passed after a `--` argv terminator.
+/// Export/import MySQL databases via the `mysqldump`/`mysql` clients. Clients resolve from the managed
+/// engine first, then from system locations (Homebrew/PATH), so connections to external hosts work
+/// even when the managed engine was never installed. The Process work runs off the main thread so the
+/// UI never blocks. Security: see `DumpServiceValidation` — creds via a 0600 defaults file, identifiers
+/// allowlist-validated, user values passed after a `--` argv terminator.
 public struct DumpService: Sendable {
     let catalog: ServiceBinaryCatalog
+    let systemToolSearchPaths: [URL]
 
-    public init(catalog: ServiceBinaryCatalog = ServiceBinaryCatalog(paths: AppSupportPaths())) {
+    public init(catalog: ServiceBinaryCatalog = ServiceBinaryCatalog(paths: AppSupportPaths()),
+                systemToolSearchPaths: [URL] = DumpService.defaultSystemToolSearchPaths()) {
         self.catalog = catalog
+        self.systemToolSearchPaths = systemToolSearchPaths
     }
 
-    /// True when the dump tools are available; the UI disables import/export and explains otherwise.
-    public var isEngineInstalled: Bool { catalog.binary(.mysql, "bin/mysqldump") != nil }
+    public static func defaultSystemToolSearchPaths() -> [URL] {
+        var dirs = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
+        if let path = ProcessInfo.processInfo.environment["PATH"] {
+            dirs += path.split(separator: ":").map(String.init)
+        }
+        var seen = Set<String>()
+        return dirs.filter { seen.insert($0).inserted }
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+    }
 
-    func catalogBinary(_ relPath: String) -> URL? { catalog.binary(.mysql, relPath) }
+    /// True when `mysqldump` resolves (managed or system); the UI disables import/export otherwise.
+    public var isEngineInstalled: Bool { clientBinary("bin/mysqldump") != nil }
+
+    /// Resolve a client binary: the managed engine catalog first, then system search paths. Only an
+    /// executable file qualifies, so a catalog path for a binary that isn't actually present is skipped.
+    func clientBinary(_ relPath: String) -> URL? {
+        let fm = FileManager.default
+        if let managed = catalog.binary(.mysql, relPath), fm.isExecutableFile(atPath: managed.path) {
+            return managed
+        }
+        let tool = (relPath as NSString).lastPathComponent
+        for dir in systemToolSearchPaths {
+            let candidate = dir.appendingPathComponent(tool)
+            if fm.isExecutableFile(atPath: candidate.path) { return candidate }
+        }
+        return nil
+    }
 
     // MARK: - Export
 
@@ -28,7 +55,8 @@ public struct DumpService: Sendable {
 
         let defaults = try DumpService.writeDefaultsFile(
             content: try DumpService.defaultsContent(
-                user: profile.user, host: profile.host, port: profile.port, password: password))
+                user: profile.user, host: profile.host, port: profile.port, password: password,
+                tlsMode: profile.tlsMode))
         defer { try? FileManager.default.removeItem(at: defaults) }
 
         FileManager.default.createFile(atPath: output.path, contents: nil)
@@ -41,8 +69,10 @@ public struct DumpService: Sendable {
         if let table { args.append(table) }
         do {
             try await runProcess(dump, args: args, stdin: nil, stdout: outHandle)
+            try outHandle.close()
+            try DumpService.ensureDumpNotEmpty(at: output, database: database)
         } catch {
-            // A failed dump may have written partial SQL; remove it so a truncated file can't be
+            // A failed or empty dump may have left partial/zero SQL; remove it so it can't be
             // mistaken for a valid dump.
             try? outHandle.close()
             try? FileManager.default.removeItem(at: output)
@@ -65,7 +95,8 @@ public struct DumpService: Sendable {
 
         let defaults = try DumpService.writeDefaultsFile(
             content: try DumpService.defaultsContent(
-                user: profile.user, host: profile.host, port: profile.port, password: password))
+                user: profile.user, host: profile.host, port: profile.port, password: password,
+                tlsMode: profile.tlsMode))
         defer { try? FileManager.default.removeItem(at: defaults) }
 
         // Create the target DB up front. The name is validated above and backtick-quoted; the SQL
@@ -92,7 +123,8 @@ public struct DumpService: Sendable {
 
         let defaults = try DumpService.writeDefaultsFile(
             content: try DumpService.defaultsContent(
-                user: profile.user, host: profile.host, port: profile.port, password: password))
+                user: profile.user, host: profile.host, port: profile.port, password: password,
+                tlsMode: profile.tlsMode))
         defer { try? FileManager.default.removeItem(at: defaults) }
 
         let quoted = try SQLDialect.forKind(.mysql).quoteIdent(database)
@@ -105,7 +137,7 @@ public struct DumpService: Sendable {
     // MARK: - Process
 
     func resolveBinary(_ relPath: String) throws -> URL {
-        guard let url = catalog.binary(.mysql, relPath) else {
+        guard let url = clientBinary(relPath) else {
             throw DatabaseError.engineNotInstalled(kind: "MySQL")
         }
         return url

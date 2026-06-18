@@ -2,15 +2,10 @@ import Foundation
 
 public extension DumpService {
 
-    /// `isEngineInstalled` only checks `mysqldump`; both clients must exist and be executable before a
-    /// backup/restore round-trip is offered, since the catalog can report a path for a binary that
-    /// isn't actually present.
+    /// `isEngineInstalled` only checks `mysqldump`; both clients must resolve (managed or system) and
+    /// be executable before a backup/restore round-trip is offered.
     var requiredBinariesPresent: Bool {
-        guard let dump = catalogBinary("bin/mysqldump"), let load = catalogBinary("bin/mysql") else {
-            return false
-        }
-        let fm = FileManager.default
-        return fm.isExecutableFile(atPath: dump.path) && fm.isExecutableFile(atPath: load.path)
+        clientBinary("bin/mysqldump") != nil && clientBinary("bin/mysql") != nil
     }
 
     func databaseExists(profile: ConnectionProfile, password: String?, database: String) async throws -> Bool {
@@ -18,7 +13,8 @@ public extension DumpService {
         let mysql = try resolveBinary("bin/mysql")
         let defaults = try DumpService.writeDefaultsFile(
             content: try DumpService.defaultsContent(
-                user: profile.user, host: profile.host, port: profile.port, password: password))
+                user: profile.user, host: profile.host, port: profile.port, password: password,
+                tlsMode: profile.tlsMode))
         defer { try? FileManager.default.removeItem(at: defaults) }
 
         let sql = "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '\(database)'"
@@ -31,7 +27,8 @@ public extension DumpService {
         let mysql = try resolveBinary("bin/mysql")
         let defaults = try DumpService.writeDefaultsFile(
             content: try DumpService.defaultsContent(
-                user: profile.user, host: profile.host, port: profile.port, password: password))
+                user: profile.user, host: profile.host, port: profile.port, password: password,
+                tlsMode: profile.tlsMode))
         defer { try? FileManager.default.removeItem(at: defaults) }
         try await runProcess(mysql, args: ["--defaults-extra-file=\(defaults.path)", "-e", sql],
                              stdin: nil, stdout: nil)
