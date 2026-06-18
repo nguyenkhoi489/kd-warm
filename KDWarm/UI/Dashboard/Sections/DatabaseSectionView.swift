@@ -10,6 +10,7 @@ struct DatabaseSectionView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var rightTab: RightTab = .data
     @State private var showingImportExport = false
+    @State private var showingCreateDatabase = false
     @State private var showingBackups = false
     @State private var backupSession = BackupSession.managed()
 
@@ -41,6 +42,7 @@ struct DatabaseSectionView: View {
         }
         .navigationTitle("Database")
         .sheet(isPresented: $showingImportExport) { ImportExportSheet() }
+        .sheet(isPresented: $showingCreateDatabase) { CreateDatabaseSheet() }
         .sheet(isPresented: $showingBackups) { backupsSheet }
     }
 
@@ -155,12 +157,29 @@ struct DatabaseSectionView: View {
                 .disabled(!isDocumentTrack && vm.connection != .connected)
                 .disabled(isDocumentTrack && documentVM.connection != .connected)
             }
+            if inWindow && isDocumentTrack {
+                Button { showingCreateDatabase = true } label: {
+                    Image(systemName: "cylinder.badge.plus")
+                }
+                .help("Create Database…")
+                .disabled(!documentVM.canCreateDatabase || documentVM.connection != .connected)
+                Button { showingImportExport = true } label: {
+                    Image(systemName: "square.and.arrow.down.on.square")
+                }
+                .help("Import…")
+                .disabled(!documentVM.canManualImport || documentVM.connection != .connected)
+            }
             if inWindow && !isDocumentTrack {
+                Button { showingCreateDatabase = true } label: {
+                    Image(systemName: "cylinder.badge.plus")
+                }
+                .help("Create Database…")
+                .disabled(!vm.canCreateDatabase || vm.connection != .connected)
                 Button { showingImportExport = true } label: {
                     Image(systemName: "square.and.arrow.up.on.square")
                 }
                 .help("Import / Export…")
-                .disabled(vm.connection != .connected || vm.selectedDatabase == nil)
+                .disabled(vm.connection != .connected || (!vm.canDump && !vm.canManualImport))
                 Picker("", selection: $rightTab) {
                     ForEach(RightTab.allCases) { Text($0.rawValue).tag($0) }
                 }

@@ -1,15 +1,11 @@
 import XCTest
 @testable import KDWarmKit
 
-/// Logic coverage for the Database section's view model, driven against a stub `RelationalDriver`
-/// (no live engine). Covers the selection chain (connection → database → table), the SQL runner's
-/// result/error split, pagination offset advance, and the generation guard that discards a stale
-/// in-flight result when the selection is superseded mid-flight.
+
 @MainActor
 final class DatabaseViewModelTests: XCTestCase {
 
-    /// Records each call and returns canned results. `databasesDelay` lets a test interleave a slow
-    /// connect with a faster one to exercise the stale-result guard.
+   
     private final class StubDriver: RelationalDriver, @unchecked Sendable {
         let kind: DatabaseKind = .mysql
         let tag: String
@@ -272,6 +268,21 @@ final class DatabaseViewModelTests: XCTestCase {
         await vm.select(profile: ro)
         let dummy = FileManager.default.temporaryDirectory.appendingPathComponent("x.sql")
         await vm.importDatabase(into: "target", from: dummy)
+        if case .failed(let message) = vm.dumpStatus {
+            XCTAssertTrue(message.contains("read-only"))
+        } else {
+            XCTFail("expected a read-only failure status")
+        }
+    }
+
+    func testReadOnlyConnectionRefusesCreateDatabase() async {
+        let driver = StubDriver(tag: "a")
+        let vm = makeVM(driver)
+        let ro = ConnectionProfile(name: "ro", kind: .mysql, host: "db.example.com", port: 3306,
+                                   user: "u", database: "d", readOnly: true)
+        await vm.select(profile: ro)
+        let created = await vm.createDatabase(named: "target")
+        XCTAssertFalse(created)
         if case .failed(let message) = vm.dumpStatus {
             XCTAssertTrue(message.contains("read-only"))
         } else {

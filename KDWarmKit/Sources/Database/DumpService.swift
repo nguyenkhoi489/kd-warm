@@ -85,6 +85,23 @@ public struct DumpService: Sendable {
                       stdin: inHandle, stdout: nil)
     }
 
+    public func createDatabase(profile: ConnectionProfile, password: String?,
+                               database: String) async throws {
+        let mysql = try resolveBinary("bin/mysql")
+        try DumpService.validateIdentifier(database, label: "database")
+
+        let defaults = try DumpService.writeDefaultsFile(
+            content: try DumpService.defaultsContent(
+                user: profile.user, host: profile.host, port: profile.port, password: password))
+        defer { try? FileManager.default.removeItem(at: defaults) }
+
+        let quoted = try SQLDialect.forKind(.mysql).quoteIdent(database)
+        try await runProcess(mysql,
+                      args: ["--defaults-extra-file=\(defaults.path)", "-e",
+                             "CREATE DATABASE \(quoted)"],
+                      stdin: nil, stdout: nil)
+    }
+
     // MARK: - Process
 
     func resolveBinary(_ relPath: String) throws -> URL {
