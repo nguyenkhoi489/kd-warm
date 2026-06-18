@@ -51,37 +51,38 @@ public final class DumpInjector {
 
     private static let prependTemplate = #"""
 <?php
-if (class_exists('\Symfony\Component\VarDumper\VarDumper', false)) {
-    if (!function_exists('__kdwarm_serialize')) {
-        function __kdwarm_serialize($v, $d = 0) {
-            if ($d > 6) return ['type' => 'truncated'];
-            if (is_null($v))   return ['type' => 'null'];
-            if (is_bool($v))   return ['type' => 'bool',  'value' => $v];
-            if (is_int($v))    return ['type' => 'int',   'value' => $v];
-            if (is_float($v))  return ['type' => 'float', 'value' => $v];
-            if (is_string($v)) return ['type' => 'string','value' => $v,'length' => strlen($v)];
-            if (is_array($v)) {
-                $items = [];
-                foreach (array_slice($v, 0, 50, true) as $k => $i)
-                    $items[] = ['key' => (string)$k, 'value' => __kdwarm_serialize($i, $d + 1)];
-                return ['type' => 'array', 'count' => count($v), 'items' => $items];
-            }
-            if (is_object($v)) {
-                $props = [];
-                foreach ((array)$v as $k => $i) {
-                    $clean = preg_replace('/^\x00[^\x00]*\x00/', '', $k);
-                    $props[] = ['key' => $clean, 'value' => __kdwarm_serialize($i, $d + 1)];
-                }
-                return ['type' => 'object', 'class' => get_class($v), 'properties' => $props];
-            }
-            return ['type' => 'resource'];
+if (!function_exists('__kdwarm_serialize')) {
+    function __kdwarm_serialize($v, $d = 0) {
+        if ($d > 6) return ['type' => 'truncated'];
+        if (is_null($v))   return ['type' => 'null'];
+        if (is_bool($v))   return ['type' => 'bool',  'value' => $v];
+        if (is_int($v))    return ['type' => 'int',   'value' => $v];
+        if (is_float($v))  return ['type' => 'float', 'value' => $v];
+        if (is_string($v)) return ['type' => 'string','value' => $v,'length' => strlen($v)];
+        if (is_array($v)) {
+            $items = [];
+            foreach (array_slice($v, 0, 50, true) as $k => $i)
+                $items[] = ['key' => (string)$k, 'value' => __kdwarm_serialize($i, $d + 1)];
+            return ['type' => 'array', 'count' => count($v), 'items' => $items];
         }
+        if (is_object($v)) {
+            $props = [];
+            foreach ((array)$v as $k => $i) {
+                $clean = preg_replace('/^\x00[^\x00]*\x00/', '', $k);
+                $props[] = ['key' => $clean, 'value' => __kdwarm_serialize($i, $d + 1)];
+            }
+            return ['type' => 'object', 'class' => get_class($v), 'properties' => $props];
+        }
+        return ['type' => 'resource'];
     }
-    \Symfony\Component\VarDumper\VarDumper::setHandler(function ($var) {
+}
+if (!function_exists('__kdwarm_send')) {
+    function __kdwarm_send($var) {
+        $self = __FILE__;
         $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
         $caller = ['file' => '', 'line' => 0];
         foreach ($bt as $f) {
-            if (isset($f['file']) && strpos($f['file'], 'var-dumper') === false) {
+            if (isset($f['file']) && $f['file'] !== $self) {
                 $caller = $f; break;
             }
         }
@@ -93,7 +94,20 @@ if (class_exists('\Symfony\Component\VarDumper\VarDumper', false)) {
         ], JSON_UNESCAPED_UNICODE);
         $fp = @fsockopen('127.0.0.1', KDWARM_PORT, $errno, $errstr, 1);
         if ($fp) { fwrite($fp, $payload . "\n"); fclose($fp); }
-    });
+    }
+}
+if (!function_exists('dump')) {
+    function dump() {
+        $vars = func_get_args();
+        foreach ($vars as $var) { __kdwarm_send($var); }
+        return count($vars) === 1 ? reset($vars) : $vars;
+    }
+}
+if (!function_exists('dd')) {
+    function dd() {
+        foreach (func_get_args() as $var) { __kdwarm_send($var); }
+        exit(1);
+    }
 }
 """#
 }
