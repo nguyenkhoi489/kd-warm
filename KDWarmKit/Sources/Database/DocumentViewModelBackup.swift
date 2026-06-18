@@ -19,6 +19,16 @@ public extension DocumentViewModel {
         }
     }
 
+    var canManualImport: Bool { canBackup && !isReadOnlyConnection }
+
+    var canCreateDatabase: Bool { selectedProfile?.kind == .mongodb && !isReadOnlyConnection }
+
+    var manualImportUnavailableReason: String? {
+        guard selectedProfile?.kind == .mongodb else { return "Pick a MongoDB connection first." }
+        if isReadOnlyConnection { return "This connection is read-only; importing is disabled." }
+        return backupUnavailableReason
+    }
+
     func backupDatabase(_ database: String, session: BackupSession) async -> BackupSet? {
         guard let profile = selectedProfile else { return nil }
         backupStatus = .running("Backing up \(database)…")
@@ -103,4 +113,49 @@ public extension DocumentViewModel {
     func clearBackupStatus() { backupStatus = .idle }
 
     func failBackupStatus(_ message: String) { backupStatus = .failed(message) }
+
+    func importDatabase(into database: String, from input: URL, replaceExisting: Bool) async {
+        guard let profile = selectedProfile else { return }
+        guard !isReadOnlyConnection else {
+            backupStatus = .failed("This connection is read-only; importing is disabled.")
+            return
+        }
+        backupStatus = .running("Importing \(database)…")
+        do {
+            try await MongoBackupProvider().restore(profile: profile, password: passwordFor(profile),
+                                                    from: input, intoDatabase: database,
+                                                    replaceExisting: replaceExisting)
+            backupStatus = .done("Imported \(input.lastPathComponent) into \(database).")
+            if let refreshed = try? await driver?.listDatabases() {
+                databases = refreshed
+            }
+            await select(database: database)
+        } catch {
+            backupStatus = .failed(Self.asDatabaseError(error).message)
+        }
+    }
+
+    @discardableResult
+    func createDatabase(named name: String) async -> Bool {
+        guard let driver else { return false }
+        guard !isReadOnlyConnection else {
+            backupStatus = .failed("This connection is read-only; creating databases is disabled.")
+            return false
+        }
+        let database = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        backupStatus = .running("Creating \(database)…")
+        do {
+            try MongoBackupProvider.validateMongoName(database, label: "database")
+            try await driver.createCollection(database: database, name: "_kdwarm_init")
+            backupStatus = .done("Created \(database).")
+            if let refreshed = try? await driver.listDatabases() {
+                databases = refreshed
+            }
+            await select(database: database)
+            return true
+        } catch {
+            backupStatus = .failed(Self.asDatabaseError(error).message)
+            return false
+        }
+    }
 }

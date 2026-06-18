@@ -32,8 +32,8 @@ public struct MongoBackupProvider: BackupProvider {
 
     public func restore(profile: ConnectionProfile, password: String?,
                         from artifactURL: URL, into target: RestoreTarget) async throws {
-        try requireDirectory(artifactURL)
-        let database = artifactURL.lastPathComponent
+        let artifact = try resolvedArtifact(artifactURL)
+        let database = artifact.database
         try Self.validateMongoName(database, label: "database")
 
         let mongorestore = try resolve("bin/mongorestore")
@@ -46,15 +46,38 @@ public struct MongoBackupProvider: BackupProvider {
             try await run(mongorestore,
                           args: try connectionArgs(profile, config: config)
                               + ["--nsFrom", "\(database).*", "--nsTo", "\(name).*",
-                                 artifactURL.path])
+                                 artifact.url.path])
         case .overwrite:
-            try await overwrite(database: database, from: artifactURL,
+            try await overwrite(database: database, sourceDatabase: database, from: artifact.url,
                                 profile: profile, password: password,
                                 mongorestore: mongorestore, config: config)
         }
     }
 
-    private func overwrite(database: String, from artifactURL: URL,
+    public func restore(profile: ConnectionProfile, password: String?,
+                        from artifactURL: URL, intoDatabase target: String,
+                        replaceExisting: Bool) async throws {
+        let artifact = try resolvedArtifact(artifactURL)
+        try Self.validateMongoName(target, label: "database")
+        try Self.validateMongoName(artifact.database, label: "database")
+
+        let mongorestore = try resolve("bin/mongorestore")
+        let config = try writeConfigFile(password)
+        defer { if let config { try? FileManager.default.removeItem(at: config) } }
+
+        if replaceExisting {
+            try await overwrite(database: target, sourceDatabase: artifact.database, from: artifact.url,
+                                profile: profile, password: password,
+                                mongorestore: mongorestore, config: config)
+        } else {
+            try await run(mongorestore,
+                          args: try connectionArgs(profile, config: config)
+                              + ["--nsFrom", "\(artifact.database).*", "--nsTo", "\(target).*",
+                                 artifact.url.path])
+        }
+    }
+
+    private func overwrite(database: String, sourceDatabase: String, from artifactURL: URL,
                            profile: ConnectionProfile, password: String?,
                            mongorestore: URL, config: URL?) async throws {
         let mongodump = try resolve("bin/mongodump")
@@ -69,7 +92,7 @@ public struct MongoBackupProvider: BackupProvider {
         do {
             try await run(mongorestore,
                           args: try connectionArgs(profile, config: config)
-                              + ["--drop", "--nsFrom", "\(database).*", "--nsTo", "\(database).*",
+                              + ["--drop", "--nsFrom", "\(sourceDatabase).*", "--nsTo", "\(database).*",
                                  artifactURL.path])
         } catch {
             // Rollback restores the safety dump but `--drop` only removes collections that EXIST in
@@ -145,6 +168,33 @@ public struct MongoBackupProvider: BackupProvider {
         guard exists, isDir.boolValue else {
             throw DatabaseError.connection("MongoDB backup artifact must be a directory.")
         }
+    }
+
+    private func resolvedArtifact(_ url: URL) throws -> (database: String, url: URL) {
+        try requireDirectory(url)
+        if Self.containsBSONFiles(url) {
+            return (url.lastPathComponent, url)
+        }
+        let children = try FileManager.default.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles])
+        let databaseFolders = children.filter { child in
+            (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                && Self.containsBSONFiles(child)
+        }
+        if databaseFolders.count == 1, let databaseFolder = databaseFolders.first {
+            return (databaseFolder.lastPathComponent, databaseFolder)
+        }
+        throw DatabaseError.connection("Choose a MongoDB database dump folder containing .bson files.")
+    }
+
+    private static func containsBSONFiles(_ url: URL) -> Bool {
+        guard let children = try? FileManager.default.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]) else { return false }
+        return children.contains { $0.pathExtension.lowercased() == "bson" }
     }
 
     private func run(_ executable: URL, args: [String]) async throws {
