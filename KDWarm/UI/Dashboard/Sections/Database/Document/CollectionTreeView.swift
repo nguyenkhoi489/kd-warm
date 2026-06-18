@@ -5,9 +5,15 @@ struct CollectionTreeView: View {
     @EnvironmentObject private var vm: DocumentViewModel
 
     var onSelectDatabase: () -> Void = {}
+    var onOpenBackups: () -> Void = {}
     var onCreateDatabase: () -> Void = {}
+    var onImportExport: () -> Void = {}
+    var canOpenBackups = false
     var canCreateDatabase = false
-    var createDatabaseHelp = "Create Database..."
+    var canImportExport = false
+    var backupsHelp = "Open backups"
+    var createDatabaseHelp = "Create Database"
+    var importExportHelp = "Import"
 
     @State private var expanded: Set<String> = []
     @State private var pendingDrop: String?
@@ -20,15 +26,22 @@ struct CollectionTreeView: View {
                 Text("Collections")
                     .font(KDFont.footnote).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-                Button(action: onCreateDatabase) {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.borderless)
-                .help(createDatabaseHelp)
-                .disabled(!canCreateDatabase)
+                SchemaHeaderButton(systemImage: "externaldrive.badge.timemachine",
+                                   help: backupsHelp,
+                                   isEnabled: canOpenBackups,
+                                   action: onOpenBackups)
+                SchemaHeaderButton(systemImage: "plus",
+                                   help: createDatabaseHelp,
+                                   isEnabled: canCreateDatabase,
+                                   action: onCreateDatabase)
+                SchemaHeaderButton(systemImage: "square.and.arrow.down.on.square",
+                                   help: importExportHelp,
+                                   isEnabled: canImportExport,
+                                   action: onImportExport)
             }
             .padding(.horizontal, KDSpacing.space3)
             .padding(.vertical, KDSpacing.space2)
+            .zIndex(2)
             Divider()
             content
         }

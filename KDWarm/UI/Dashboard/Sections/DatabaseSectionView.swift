@@ -108,16 +108,30 @@ struct DatabaseSectionView: View {
     @ViewBuilder
     private var relationalTrack: some View {
         if inWindow {
-            SchemaTreeView(onCreateDatabase: showCreateDatabase,
+            SchemaTreeView(onOpenBackups: showBackups,
+                           onCreateDatabase: showCreateDatabase,
+                           onImportExport: showImportExport,
                            onlySelectedDatabase: true,
+                           canOpenBackups: canOpenBackups,
                            canCreateDatabase: canCreateActiveDatabase,
-                           createDatabaseHelp: createDatabaseTooltip)
+                           canImportExport: canUseImportExport,
+                           backupsHelp: backupsTooltip,
+                           createDatabaseHelp: createDatabaseTooltip,
+                           importExportHelp: importExportTooltip,
+                           importExportSystemImage: importExportSystemImage)
             rightPane.frame(minWidth: 360)
         } else {
             SchemaTreeView(onSelectDatabase: openBrowserWindow,
+                           onOpenBackups: showBackups,
                            onCreateDatabase: showCreateDatabase,
+                           onImportExport: showImportExport,
+                           canOpenBackups: canOpenBackups,
                            canCreateDatabase: canCreateActiveDatabase,
-                           createDatabaseHelp: createDatabaseTooltip)
+                           canImportExport: canUseImportExport,
+                           backupsHelp: backupsTooltip,
+                           createDatabaseHelp: createDatabaseTooltip,
+                           importExportHelp: importExportTooltip,
+                           importExportSystemImage: importExportSystemImage)
             dashboardRightPane.frame(minWidth: 320)
         }
     }
@@ -128,9 +142,15 @@ struct DatabaseSectionView: View {
             DocumentSectionContent()
         } else if documentVM.connection == .connected {
             CollectionTreeView(onSelectDatabase: openBrowserWindow,
+                               onOpenBackups: showBackups,
                                onCreateDatabase: showCreateDatabase,
+                               onImportExport: showImportExport,
+                               canOpenBackups: canOpenBackups,
                                canCreateDatabase: canCreateActiveDatabase,
-                               createDatabaseHelp: createDatabaseTooltip)
+                               canImportExport: canUseImportExport,
+                               backupsHelp: backupsTooltip,
+                               createDatabaseHelp: createDatabaseTooltip,
+                               importExportHelp: importExportTooltip)
             launcherPane.frame(minWidth: 320)
         } else {
             DocumentSectionContent()
@@ -158,41 +178,7 @@ struct DatabaseSectionView: View {
             Text(activeProfileName).font(KDFont.headline)
             connectionStatus
             Spacer()
-            if inWindow {
-                Button { showingBackups = true } label: {
-                    Image(systemName: "externaldrive.badge.timemachine")
-                }
-                .help(backupsTooltip)
-                .accessibilityLabel("Backups")
-                .disabled(!canOpenBackups)
-            }
-            if inWindow && isDocumentTrack {
-                Button(action: showCreateDatabase) {
-                    Image(systemName: "plus")
-                }
-                .help(createDatabaseTooltip)
-                .accessibilityLabel("Create Database")
-                .disabled(!canCreateActiveDatabase)
-                Button { showingImportExport = true } label: {
-                    Image(systemName: "square.and.arrow.down.on.square")
-                }
-                .help(importExportTooltip)
-                .accessibilityLabel("Import")
-                .disabled(!canUseImportExport)
-            }
             if inWindow && !isDocumentTrack {
-                Button(action: showCreateDatabase) {
-                    Image(systemName: "plus")
-                }
-                .help(createDatabaseTooltip)
-                .accessibilityLabel("Create Database")
-                .disabled(!canCreateActiveDatabase)
-                Button { showingImportExport = true } label: {
-                    Image(systemName: "square.and.arrow.up.on.square")
-                }
-                .help(importExportTooltip)
-                .accessibilityLabel("Import / Export")
-                .disabled(!canUseImportExport)
                 Picker("", selection: $rightTab) {
                     ForEach(RightTab.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -203,9 +189,19 @@ struct DatabaseSectionView: View {
         .padding(KDSpacing.space3)
     }
 
+    private func showBackups() {
+        guard canOpenBackups else { return }
+        showingBackups = true
+    }
+
     private func showCreateDatabase() {
         guard canCreateActiveDatabase else { return }
         showingCreateDatabase = true
+    }
+
+    private func showImportExport() {
+        guard canUseImportExport else { return }
+        showingImportExport = true
     }
 
     private var canOpenBackups: Bool {
@@ -275,6 +271,10 @@ struct DatabaseSectionView: View {
         case .none:
             return "Pick a connection before importing."
         }
+    }
+
+    private var importExportSystemImage: String {
+        isDocumentTrack ? "square.and.arrow.down.on.square" : "square.and.arrow.up.on.square"
     }
 
     private var activeProfileName: String {
