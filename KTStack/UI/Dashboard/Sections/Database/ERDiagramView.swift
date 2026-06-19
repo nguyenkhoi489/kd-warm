@@ -10,13 +10,18 @@ struct ERDiagramView: View {
     @State private var pan: CGSize = .zero
     @State private var gesturePan: CGSize = .zero
 
-    private var layout: ERDiagramLayout {
+    @State private var layout: ERDiagramLayout = .empty
+
+    private var catalogSignature: String {
         let catalog = vm.schemaCatalog
-        guard !catalog.tables.isEmpty else { return .empty }
-        let pkByTable = Dictionary(uniqueKeysWithValues: catalog.tables.map { table in
-            (table, Set<String>())
-        })
-        return ERLayoutEngine.layout(
+        return "\(catalog.tables.joined(separator: ","))|\(catalog.relations.count)"
+    }
+
+    private func rebuildLayout() {
+        let catalog = vm.schemaCatalog
+        guard !catalog.tables.isEmpty else { layout = .empty; return }
+        let pkByTable = Dictionary(uniqueKeysWithValues: catalog.tables.map { ($0, Set<String>()) })
+        layout = ERLayoutEngine.layout(
             tables: catalog.tables,
             columnsByTable: catalog.columnsByTable,
             primaryKeysByTable: pkByTable,
@@ -35,7 +40,9 @@ struct ERDiagramView: View {
         }
         .task(id: vm.selectedDatabase) {
             await vm.loadRelationsIfNeeded()
+            rebuildLayout()
         }
+        .onChange(of: catalogSignature) { _ in rebuildLayout() }
     }
 
     private var diagramCanvas: some View {
@@ -101,7 +108,7 @@ struct ERDiagramView: View {
     private func tableNodeView(_ node: ERTableNode) -> some View {
         VStack(spacing: 0) {
             Text(node.table)
-                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                .font(.jbMono(15, .semibold))
                 .padding(.horizontal, KDSpacing.space2)
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,7 +129,7 @@ struct ERDiagramView: View {
                             Spacer().frame(width: 10)
                         }
                         Text(column)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.jbMono(11))
                             .lineLimit(1)
                         Spacer()
                     }
@@ -137,7 +144,6 @@ struct ERDiagramView: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(Color.secondary.opacity(0.35), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
     }
 
     private var panGesture: some Gesture {
