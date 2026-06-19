@@ -34,6 +34,13 @@ struct DashboardWindow: View {
             detail(for: selection)
         }
         .environmentObject(overlay)
+        .overlay {
+            if overlay.databaseEditorPresented {
+                KTDatabaseEditorModal(onClose: { overlay.databaseEditorPresented = false })
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: overlay.databaseEditorPresented)
         .ktOverlayHost(overlay)
     }
 

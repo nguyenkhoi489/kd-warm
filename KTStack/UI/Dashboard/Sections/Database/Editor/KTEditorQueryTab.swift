@@ -31,13 +31,13 @@ struct KTEditorQueryTab: View {
 
     private var editorPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextEditor(text: sqlBinding)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(Color(hex: 0xD4D4DA))
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 96, maxHeight: 150)
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(KTColor.editorBg))
+            SQLCodeEditor(text: sqlBinding,
+                          catalog: vm.schemaCatalog,
+                          keywords: SQLKeywords.forKind(vm.selectedProfile?.kind ?? .mysql))
+                .frame(minHeight: 96, maxHeight: 160)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
             HStack(spacing: 10) {
                 runButton
                 Button("Format") { sqlBinding.wrappedValue = KTSQLFormatter.format(sqlBinding.wrappedValue) }

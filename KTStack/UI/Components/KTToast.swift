@@ -14,6 +14,7 @@ final class KTOverlayCenter: ObservableObject {
 
     @Published var toastMessage: String?
     @Published var confirmRequest: ConfirmRequest?
+    @Published var databaseEditorPresented = false
 
     private var dismissTask: Task<Void, Never>?
 

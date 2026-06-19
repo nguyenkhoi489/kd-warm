@@ -17,7 +17,6 @@ struct KTDatabaseScreen: View {
     @State private var showNewDatabase = false
     @State private var showImportExport = false
     @State private var restoringSet: BackupSet?
-    @State private var showEditor = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -34,19 +33,10 @@ struct KTDatabaseScreen: View {
             }
         }
         .task { await autoConnectIfNeeded(); reloadBackups() }
-        .overlay { editorOverlay }
         .overlay { connectOverlay }
         .overlay { newDatabaseOverlay }
-        .animation(.easeOut(duration: 0.15), value: showEditor)
         .animation(.easeOut(duration: 0.15), value: showConnect)
         .animation(.easeOut(duration: 0.15), value: showNewDatabase)
-    }
-
-    @ViewBuilder
-    private var editorOverlay: some View {
-        if showEditor {
-            KTDatabaseEditorModal(onClose: { showEditor = false }).transition(.opacity)
-        }
     }
 
     @ViewBuilder
@@ -209,7 +199,7 @@ struct KTDatabaseScreen: View {
     private func open(_ name: String) {
         Task {
             await vm.select(database: name)
-            showEditor = true
+            overlay.databaseEditorPresented = true
         }
     }
 
