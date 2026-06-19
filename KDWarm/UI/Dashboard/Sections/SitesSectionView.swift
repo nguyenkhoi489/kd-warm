@@ -29,6 +29,9 @@ private struct SitesContent: View {
     @State private var showNewSheet = false
     @State private var showImportSheet = false
     @State private var searchText = ""
+    @State private var removeError: String?
+    @State private var removingSiteID: UUID?
+    @State private var pendingRemoval: Site?
 
     private var filteredSites: [Site] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,7 +44,16 @@ private struct SitesContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            SitesHeaderView(
+                siteCount: registry.sites.count,
+                serverStatus: server.nginxStatus,
+                isRunning: server.isRunning,
+                isBusy: server.isBusy,
+                onToggleServer: { server.toggle() },
+                onScan: { showScanSheet = true },
+                onImport: { showImportSheet = true },
+                onAddExisting: { showAddSheet = true },
+                onNewSite: { showNewSheet = true })
             Divider()
             if registry.sites.isEmpty {
                 EmptyStateView(
@@ -51,13 +63,13 @@ private struct SitesContent: View {
                     actionTitle: "Add Site…"
                 ) { showAddSheet = true }
             } else {
-                if registry.sites.count > 8 {
-                    searchField
-                    Divider()
+                VStack(spacing: KDSpacing.space3) {
+                    SitesSearchStrip(text: $searchText)
+                    list
                 }
-                list
+                .padding(KDSpacing.space4)
             }
-            if let error = server.lastError {
+            if let error = server.lastError ?? removeError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(KDFont.footnote)
                     .foregroundStyle(Color.KDStatus.warning)
@@ -81,34 +93,7 @@ private struct SitesContent: View {
         .sheet(isPresented: $showImportSheet) {
             MigrateImportSheet(registry: registry, availableVersions: server.availableVersions)
         }
-    }
-
-    private var toolbar: some View {
-        HStack(spacing: KDSpacing.space2) {
-            Button(server.isRunning ? "Stop Server" : "Start Server") { server.toggle() }
-                .disabled(server.isBusy)
-            StatusPill(server.nginxStatus, text: server.isRunning ? "nginx" : "offline")
-            Spacer()
-            Button { showScanSheet = true } label: { Label("Scan…", systemImage: "folder.badge.gearshape") }
-            Button { showImportSheet = true } label: { Label("Import…", systemImage: "square.and.arrow.down") }
-            Button { showAddSheet = true } label: { Label("Add Site", systemImage: "plus") }
-            Button { showNewSheet = true } label: { Label("New Site", systemImage: "sparkles") }
-                .keyboardShortcut("n", modifiers: .command)
-        }
-        .padding(KDSpacing.space2)
-    }
-
-    private var searchField: some View {
-        HStack(spacing: KDSpacing.space2) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Search sites by name or domain", text: $searchText)
-                .textFieldStyle(.plain)
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.borderless).foregroundStyle(.secondary)
-            }
-        }
-        .padding(KDSpacing.space2)
+        .alert(item: $pendingRemoval, content: removeAlert)
     }
 
     @ViewBuilder
@@ -126,24 +111,26 @@ private struct SitesContent: View {
     }
 
     private var siteScroll: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(filteredSites) { site in
-                    SiteRowView(
-                        site: site,
-                        availableVersions: server.availableVersions,
-                        canOpen: server.isRunning,
-                        onOpen: { open(site) },
-                        onRemove: { registry.remove(site) },
-                        onEditDomain: { try registry.editDomain(site, to: $0) },
-                        onSetVersion: { registry.setPHPVersion(site, to: $0) },
-                        onSetSecure: { server.setSiteSecure(site, $0) },
-                        onOpenLogs: { onOpenLogs("site-\(site.domain)-access") },
-                        shareStatus: tunnels.session(site.id)?.status ?? .idle,
-                        onToggleShare: { on in
-                            if on { tunnels.start(site: site) } else { tunnels.stop(site: site.id) }
-                        })
-                    Divider()
+        SitesListSurface {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(filteredSites.enumerated()), id: \.element.id) { index, site in
+                        SiteRowView(
+                            site: site,
+                            availableVersions: server.availableVersions,
+                            canOpen: server.isRunning,
+                            onOpen: { open(site) },
+                            onRemove: { pendingRemoval = site },
+                            onEditDomain: { try registry.editDomain(site, to: $0) },
+                            onSetVersion: { registry.setPHPVersion(site, to: $0) },
+                            onSetSecure: { server.setSiteSecure(site, $0) },
+                            onOpenLogs: { onOpenLogs("site-\(site.domain)-access") },
+                            shareStatus: tunnels.session(site.id)?.status ?? .idle,
+                            onToggleShare: { on in
+                                if on { tunnels.start(site: site) } else { tunnels.stop(site: site.id) }
+                            })
+                        if index < filteredSites.count - 1 { Divider() }
+                    }
                 }
             }
         }
@@ -153,5 +140,48 @@ private struct SitesContent: View {
         let scheme = site.secure ? "https" : "http"
         guard let url = URL(string: "\(scheme)://\(site.domain)/") else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    private func removeAlert(_ site: Site) -> Alert {
+        Alert(
+            title: Text("Remove \(site.domain)?"),
+            message: Text(removeConfirmationMessage(for: site)),
+            primaryButton: .destructive(Text("Remove Site")) { remove(site) },
+            secondaryButton: .cancel()
+        )
+    }
+
+    private func removeConfirmationMessage(for site: Site) -> String {
+        if let databaseName = site.databaseName {
+            return "This permanently deletes \(site.path), drops the MySQL database “\(databaseName)”, and removes the site from KTStack. This cannot be undone."
+        }
+        return "This permanently deletes \(site.path) and removes the site from KTStack. No managed database is linked to this site. This cannot be undone."
+    }
+
+    private func remove(_ site: Site) {
+        guard removingSiteID == nil else { return }
+        removingSiteID = site.id
+        removeError = nil
+        Task {
+            do {
+                let coordinator = SiteRemovalCoordinator(
+                    deleteFolder: { site in
+                        try await MainActor.run { try registry.deleteFolderForRemoval(site) }
+                    },
+                    dropDatabase: { databaseName in
+                        let paths = AppSupportPaths()
+                        let mysql = MySQLController(paths: paths, agents: LaunchAgentManager(paths: paths))
+                        let database = DatabaseProvisioner(ensureEngine: { try await mysql.start() })
+                        try await database.dropDatabase(databaseName)
+                    },
+                    removeRecord: { site in
+                        await MainActor.run { registry.remove(site) }
+                    })
+                try await coordinator.remove(site)
+            } catch {
+                removeError = "Couldn't remove \(site.domain): \(error.localizedDescription)"
+            }
+            removingSiteID = nil
+        }
     }
 }

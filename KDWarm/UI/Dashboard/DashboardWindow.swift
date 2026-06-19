@@ -25,20 +25,22 @@ struct DashboardWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(SidebarSection.allCases) { section in
-                    Section(section.title) {
-                        ForEach(section.items) { item in
-                            Label(item.title, systemImage: item.symbol).tag(item)
-                        }
-                    }
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
+            DashboardSidebarView(
+                selection: $selection,
+                siteCount: server.registry.sites.count,
+                serverStatus: sidebarServerStatus)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
         } detail: {
             detail(for: selection ?? .sites)
         }
         .frame(minWidth: 720, minHeight: 460)
+    }
+
+    private var sidebarServerStatus: ServiceStatus {
+        if server.nginxStatus == .starting || server.nginxStatus == .error || server.nginxStatus == .warning {
+            return server.nginxStatus
+        }
+        return server.isRunning ? .running : .stopped
     }
 
     @ViewBuilder
