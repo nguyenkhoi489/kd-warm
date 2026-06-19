@@ -76,7 +76,7 @@ struct KTServicesScreen: View {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, snapshot in
                 KTServiceRow(
                     snapshot: snapshot,
-                    canToggle: snapshot.kind != .phpFpm,
+                    canToggle: true,
                     onToggle: { services.toggle(snapshot.kind) },
                     onRestart: { services.restart(snapshot.kind) },
                     onOpenLogs: { onOpenLogs(Self.logSourceID(for: snapshot.kind)) },

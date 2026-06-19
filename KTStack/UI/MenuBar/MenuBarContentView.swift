@@ -66,7 +66,7 @@ struct MenuBarContentView: View {
 
 
     private func serviceRow(_ snapshot: ServiceSnapshot) -> some View {
-        let canToggle = snapshot.kind != .phpFpm && snapshot.isInstalled
+        let canToggle = snapshot.isInstalled
         let binding = Binding<Bool>(
             get: { snapshot.status == .running },
             set: { _ in services.toggle(snapshot.kind) })

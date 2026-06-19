@@ -176,11 +176,127 @@ public final class LocalServerController: ObservableObject {
         agents.bootoutAll()
     }
 
+    // MARK: - Independent nginx / PHP-FPM lifecycle
+
+    public var phpRunning: Bool {
+        let active = pools.activeVersions
+        return !active.isEmpty && active.allSatisfy { pools.isRunning(version: $0) }
+    }
+
+    public func toggleNginx() { isRunning ? stopNginx() : startNginx() }
+    public func togglePHP() { phpRunning ? stopPHP() : startPHP() }
+
+    public func startNginx() {
+        guard !isBusy, !isRunning else { return }
+        isBusy = true; lastError = nil; nginxStatus = .starting
+        ensureSeed()
+        let sites = registry.sites
+        let port = httpPort
+        Task.detached(priority: .userInitiated) { [self] in
+            do {
+                try stager.stageIfNeeded()
+                _ = try generator.generate(sites: sites, port: port)
+                switch preflight.check(port: port) {
+                case .available: break
+                case .inUse(_, let message), .blocked(let message):
+                    throw NSError(domain: "KTStack", code: 2, userInfo: [NSLocalizedDescriptionKey: message])
+                }
+                try nginx.start()
+                await finish(missing: [], error: nil)
+            } catch {
+                nginx.stop()
+                await finish(missing: [], error: error.localizedDescription)
+            }
+        }
+    }
+
+    public func stopNginx() {
+        guard !isBusy else { return }
+        isBusy = true
+        Task.detached(priority: .userInitiated) { [nginx, self] in
+            nginx.stop()
+            await MainActor.run { self.isBusy = false; self.recomputeStatus() }
+        }
+    }
+
+    public func startPHP() {
+        guard !isBusy, !phpRunning else { return }
+        isBusy = true; lastError = nil; phpStatus = .starting
+        ensureSeed()
+        let sites = registry.sites
+        Task.detached(priority: .userInitiated) { [self] in
+            do {
+                try stager.stageIfNeeded()
+                _ = try pools.reconcile(required: generator.poolVersions(for: sites))
+                for version in pools.activeVersions {
+                    try await Self.waitForSocket(pools.socket(for: version))
+                }
+                let installedPHP = Set(BundledPHP.availableVersions(php: paths.phpRuntimesRoot))
+                let missing = SiteConfigGenerator.requiredVersions(for: sites)
+                    .subtracting(installedPHP).sorted()
+                await finish(missing: missing, error: nil)
+            } catch {
+                pools.stopAll()
+                await finish(missing: [], error: error.localizedDescription)
+            }
+        }
+    }
+
+    public func stopPHP() {
+        guard !isBusy else { return }
+        isBusy = true
+        Task.detached(priority: .userInitiated) { [pools, self] in
+            pools.stopAll()
+            await MainActor.run { self.isBusy = false; self.recomputeStatus() }
+        }
+    }
+
+    public func restartNginx() {
+        guard !isBusy else { return }
+        isBusy = true; lastError = nil; nginxStatus = .starting
+        ensureSeed()
+        let sites = registry.sites
+        let port = httpPort
+        Task.detached(priority: .userInitiated) { [self] in
+            nginx.stop()
+            do {
+                try stager.stageIfNeeded()
+                _ = try generator.generate(sites: sites, port: port)
+                try nginx.start()
+                await finish(missing: [], error: nil)
+            } catch {
+                nginx.stop()
+                await finish(missing: [], error: error.localizedDescription)
+            }
+        }
+    }
+
+    public func restartPHP() {
+        guard !isBusy else { return }
+        isBusy = true; lastError = nil; phpStatus = .starting
+        ensureSeed()
+        let sites = registry.sites
+        Task.detached(priority: .userInitiated) { [self] in
+            pools.stopAll()
+            do {
+                try stager.stageIfNeeded()
+                _ = try pools.reconcile(required: generator.poolVersions(for: sites))
+                for version in pools.activeVersions {
+                    try await Self.waitForSocket(pools.socket(for: version))
+                }
+                await finish(missing: [], error: nil)
+            } catch {
+                pools.stopAll()
+                await finish(missing: [], error: error.localizedDescription)
+            }
+        }
+    }
+
     // MARK: - Reconcile
 
     private func onRegistryChanged() {
         onSitesChanged?(registry.sites)
-        guard isRunning else { refreshWatches(); return }
+        guard isRunning || phpRunning else { refreshWatches(); return }
         guard !isBusy else { pendingReconcile = true; return }
         reconcile()
     }

@@ -85,8 +85,10 @@ public final class ServiceManager: ObservableObject {
     public func toggle(_ kind: ServiceKind) {
         let running = snapshot(kind)?.status == .running
         switch kind {
-        case .nginx, .phpFpm:
-            server.toggle()
+        case .nginx:
+            server.toggleNginx()
+        case .phpFpm:
+            server.togglePHP()
         default:
             guard let svc = services[kind] else { return }
             perform(kind) { running ? try await svc.stop() : try await svc.start() }
@@ -95,8 +97,10 @@ public final class ServiceManager: ObservableObject {
 
     public func restart(_ kind: ServiceKind) {
         switch kind {
-        case .nginx, .phpFpm:
-            server.restart()       // one sequenced stop→start (no busy-flag race, skips own-port preflight)
+        case .nginx:
+            server.restartNginx()
+        case .phpFpm:
+            server.restartPHP()
         default:
             guard let svc = services[kind] else { return }
             perform(kind) { try await svc.restart() }
