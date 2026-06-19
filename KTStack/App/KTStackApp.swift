@@ -16,7 +16,10 @@ private struct MenuBarLaunchLabel: View {
                 if !AppActivationPolicy.focusExistingWindow(titled: "KTStack Dashboard") {
                     openWindow(id: DashboardWindow.windowID)
                 }
-                DispatchQueue.main.async { AppActivationPolicy.activateRegular() }
+                DispatchQueue.main.async {
+                    AppActivationPolicy.activateRegular()
+                    AppActivationPolicy.resizeWindow(titled: "KTStack Dashboard", toFraction: 0.8)
+                }
             }
     }
 }
@@ -29,6 +32,11 @@ struct KTStackApp: App {
     init() {
         LegacyKDWarmMigration.runIfNeeded()
         UserDefaults.standard.register(defaults: ["NSQuitAlwaysKeepsWindows": false])
+    }
+
+    static var defaultWindowSize: CGSize {
+        let visible = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
+        return CGSize(width: (visible.width * 0.8).rounded(), height: (visible.height * 0.8).rounded())
     }
 
     var body: some Scene {
@@ -61,7 +69,7 @@ struct KTStackApp: App {
                 .environmentObject(appDelegate.documentViewModel)
                 .environmentObject(appDelegate.tunnels)
         }
-        .defaultSize(width: 1440, height: 820)
+        .defaultSize(width: Self.defaultWindowSize.width, height: Self.defaultWindowSize.height)
         .windowResizability(.contentMinSize)
 
         Window("Database", id: DatabaseWindow.windowID) {
@@ -71,7 +79,7 @@ struct KTStackApp: App {
                 .environmentObject(appDelegate.databaseViewModel)
                 .environmentObject(appDelegate.documentViewModel)
         }
-        .defaultSize(width: 1280, height: 720)
+        .defaultSize(width: Self.defaultWindowSize.width, height: Self.defaultWindowSize.height)
         .windowResizability(.contentMinSize)
 
         Settings {

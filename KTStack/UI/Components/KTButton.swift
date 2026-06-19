@@ -18,13 +18,13 @@ struct KTButton: View {
             HStack(spacing: 7) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .font(.system(size: 12.5, weight: .semibold))
                 }
-                Text(title).font(.system(size: 13.5, weight: weight))
+                Text(title).font(.system(size: 12.5, weight: weight))
             }
             .foregroundStyle(foreground)
-            .padding(.vertical, kind == .primary ? 10 : 9)
-            .padding(.horizontal, 15)
+            .padding(.vertical, kind == .primary ? 8 : 7)
+            .padding(.horizontal, 13)
             .background(background)
             .overlay(border)
             .clipShape(RoundedRectangle(cornerRadius: KTRadius.button, style: .continuous))
