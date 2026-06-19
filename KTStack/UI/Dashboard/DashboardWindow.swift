@@ -48,7 +48,7 @@ struct DashboardWindow: View {
     private func detail(for item: SidebarItem) -> some View {
         switch item {
         case .sites:    KTSitesScreen(onOpenLogs: openLogs)
-        case .services: ServicesSectionView(onNavigate: { selection = $0 }, onOpenLogs: openLogs)
+        case .services: KTServicesScreen(onNavigate: { selection = $0 }, onOpenLogs: openLogs)
         case .runtimes: RuntimesSectionView()
         case .logs:     LogsSectionView(targetSourceID: logTarget)
         case .mail:     MailSectionView()
