@@ -154,7 +154,8 @@ public struct LaunchAgentManager: Sendable {
             depth -= line.filter { $0 == "}" }.count
             if depth <= 0 { break }
             if let token = line.split(whereSeparator: { $0 == " " || $0 == "\t" }).last,
-               token.hasPrefix("com.ktstack.") {
+               token.hasPrefix("com.ktstack."),
+               !token.contains("-sparkle-") {
                 labels.insert(String(token))
             }
         }
