@@ -1,6 +1,28 @@
 import Foundation
 import Combine
 
+public struct SiteRemovalCoordinator: Sendable {
+    private let deleteFolder: @Sendable (Site) async throws -> Void
+    private let dropDatabase: @Sendable (String) async throws -> Void
+    private let removeRecord: @Sendable (Site) async -> Void
+
+    public init(deleteFolder: @escaping @Sendable (Site) async throws -> Void,
+                dropDatabase: @escaping @Sendable (String) async throws -> Void,
+                removeRecord: @escaping @Sendable (Site) async -> Void) {
+        self.deleteFolder = deleteFolder
+        self.dropDatabase = dropDatabase
+        self.removeRecord = removeRecord
+    }
+
+    public func remove(_ site: Site) async throws {
+        try await deleteFolder(site)
+        if let databaseName = site.databaseName {
+            try await dropDatabase(databaseName)
+        }
+        await removeRecord(site)
+    }
+}
+
 @MainActor
 public final class SiteRegistry: ObservableObject {
     @Published public private(set) var sites: [Site] = []
@@ -33,6 +55,7 @@ public final class SiteRegistry: ObservableObject {
         case wrongTLD(String, expected: String)
         case domainTaken(String)
         case notADirectory(String)
+        case unsafeDeletePath(String)
 
         public var errorDescription: String? {
             switch self {
@@ -40,6 +63,7 @@ public final class SiteRegistry: ObservableObject {
             case .wrongTLD(let d, let t): return "“\(d)” must end in .\(t) (MVP resolves only .\(t) automatically)."
             case .domainTaken(let d):   return "Another site already uses “\(d)”."
             case .notADirectory(let p): return "“\(p)” is not a folder."
+            case .unsafeDeletePath(let p): return "Refusing to delete unsafe site folder “\(p)”."
             }
         }
     }
@@ -48,7 +72,8 @@ public final class SiteRegistry: ObservableObject {
 
     @discardableResult
     public func add(folder: URL, phpVersion: String = BundledPHP.defaultVersion,
-                    respectProjectMarkers: Bool = true) throws -> Site {
+                    respectProjectMarkers: Bool = true,
+                    databaseName: String? = nil) throws -> Site {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDir), isDir.boolValue else {
             throw RegistryError.notADirectory(folder.path)
@@ -64,7 +89,8 @@ public final class SiteRegistry: ObservableObject {
                         docroot: info.docroot.path,
                         domain: domain,
                         phpVersion: resolvedPHP,
-                        type: info.type)
+                        type: info.type,
+                        databaseName: databaseName)
         sites.append(site)
         persist()
         return site
@@ -73,6 +99,26 @@ public final class SiteRegistry: ObservableObject {
     public func remove(_ site: Site) {
         sites.removeAll { $0.id == site.id }
         persist()
+    }
+
+    public func removeDeletingFolder(_ site: Site) throws {
+        try deleteFolderForRemoval(site)
+        remove(site)
+    }
+
+    public func validateCanRemoveDeletingFolder(_ site: Site) throws {
+        let folder = URL(fileURLWithPath: site.path, isDirectory: true).standardizedFileURL
+        try validateDeletableSiteFolder(folder)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) else { return }
+        guard isDirectory.boolValue else { throw RegistryError.notADirectory(folder.path) }
+    }
+
+    public func deleteFolderForRemoval(_ site: Site) throws {
+        let folder = URL(fileURLWithPath: site.path, isDirectory: true).standardizedFileURL
+        try validateCanRemoveDeletingFolder(site)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return }
+        try FileManager.default.removeItem(at: folder)
     }
 
     public func editDomain(_ site: Site, to newDomain: String) throws {
@@ -126,6 +172,14 @@ public final class SiteRegistry: ObservableObject {
         guard let idx = sites.firstIndex(where: { $0.id == id }) else { return }
         mutate(&sites[idx])
         persist()
+    }
+
+    private func validateDeletableSiteFolder(_ folder: URL) throws {
+        let path = folder.path
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        guard path != "/", path != home, !folder.lastPathComponent.isEmpty else {
+            throw RegistryError.unsafeDeletePath(path)
+        }
     }
 
     private func uniqueDomain(_ base: String) -> String {

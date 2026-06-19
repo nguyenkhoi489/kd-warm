@@ -14,7 +14,7 @@ struct SitesHeaderView: View {
     let onNewSite: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: KDSpacing.space3) {
+        VStack(alignment: .leading, spacing: KDSpacing.space2) {
             HStack(spacing: KDSpacing.space2) {
                 Text("Sites")
                     .font(.largeTitle.weight(.bold))
@@ -29,10 +29,12 @@ struct SitesHeaderView: View {
                     Label("Scan", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
                 Button(action: onImport) {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
                 HStack(spacing: 0) {
                     Button(action: onNewSite) {
                         Label("New Site", systemImage: "plus")
@@ -50,16 +52,17 @@ struct SitesHeaderView: View {
                     .menuIndicator(.hidden)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .clipShape(RoundedRectangle(cornerRadius: KDRadius.control))
             }
             HStack(spacing: KDSpacing.space2) {
                 SitesServerStatusPill(status: displayStatus)
                 Button(isRunning ? "Stop Server" : "Start Server", action: onToggleServer)
                     .buttonStyle(.bordered)
+                    .controlSize(.regular)
                     .disabled(isBusy)
             }
         }
-        .controlSize(.large)
         .padding(.horizontal, KDSpacing.space4)
         .padding(.vertical, KDSpacing.space3)
     }

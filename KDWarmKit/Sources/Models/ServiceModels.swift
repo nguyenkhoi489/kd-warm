@@ -66,6 +66,7 @@ public struct Site: Identifiable, Hashable, Codable, Sendable {
     public var domain: String
     public var phpVersion: String
     public var type: SiteType
+    public var databaseName: String?
     public var secure: Bool    
 
     public init(id: UUID = UUID(),
@@ -75,6 +76,7 @@ public struct Site: Identifiable, Hashable, Codable, Sendable {
                 domain: String,
                 phpVersion: String,
                 type: SiteType,
+                databaseName: String? = nil,
                 secure: Bool = false) {
         self.id = id
         self.name = name
@@ -83,6 +85,7 @@ public struct Site: Identifiable, Hashable, Codable, Sendable {
         self.domain = domain
         self.phpVersion = phpVersion
         self.type = type
+        self.databaseName = databaseName
         self.secure = secure
     }
 

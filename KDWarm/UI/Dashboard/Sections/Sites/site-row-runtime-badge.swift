@@ -36,11 +36,6 @@ struct SiteRowRuntimeBadge: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .accessibilityLabel("PHP version \(phpVersion)")
-        } else {
-            Text(type.label)
-                .font(KDFont.footnote)
-                .foregroundStyle(.secondary)
-                .frame(width: 108, alignment: .leading)
-        }
+        } 
     }
 }
