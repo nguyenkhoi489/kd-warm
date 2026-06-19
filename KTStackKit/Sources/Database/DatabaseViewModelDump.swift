@@ -66,6 +66,24 @@ public extension DatabaseViewModel {
         }
     }
 
+    func importFullDump(from input: URL) async {
+        guard let profile = selectedProfile, profile.kind == .mysql else { return }
+        guard !isReadOnlyConnection else {
+            dumpStatus = .failed("This connection is read-only; importing is disabled.")
+            return
+        }
+        dumpStatus = .running
+        do {
+            try await dumpService.importFullDump(profile: profile, password: passwordFor(profile), from: input)
+            dumpStatus = .done("Imported all databases from \(input.lastPathComponent).")
+            if let driver, let refreshed = try? await driver.listDatabases() {
+                databases = refreshed
+            }
+        } catch {
+            dumpStatus = .failed(Self.asDatabaseError(error).message)
+        }
+    }
+
     func importSQLite(from input: URL, into target: RestoreTarget) async {
         guard let profile = selectedProfile, profile.kind == .sqlite else { return }
         guard !isReadOnlyConnection else {

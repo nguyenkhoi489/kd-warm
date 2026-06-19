@@ -12,6 +12,7 @@ struct ImportExportSheet: View {
     @State private var exportTable: String = wholeDatabase
     @State private var importFile: URL?
     @State private var targetName: String = ""
+    @State private var fullDumpMode = false
     @State private var sqliteMode: SQLiteImportMode = .overwrite
     @State private var sqliteNewPath: URL?
     @State private var pendingExists = false
@@ -114,7 +115,11 @@ struct ImportExportSheet: View {
             if let importFile {
                 Text(importFile.lastPathComponent).font(KDFont.mono).foregroundStyle(.secondary)
             }
-            targetControls
+            if activeKind == .mysql {
+                Toggle("Import entire dump (all databases)", isOn: $fullDumpMode)
+                    .toggleStyle(.checkbox)
+            }
+            if !isFullDump { targetControls }
             HStack(spacing: KDSpacing.space2) {
                 Button("Import") { startImport() }
                     .disabled(importFile == nil || !canSubmit || isWorking || isResolvingTarget)
@@ -236,6 +241,11 @@ struct ImportExportSheet: View {
     }
 
     private func startImport() {
+        if isFullDump {
+            pendingExists = false
+            confirmingImport = true
+            return
+        }
         Task {
             isResolvingTarget = true
             pendingExists = await resolveTargetExists()
@@ -254,6 +264,10 @@ struct ImportExportSheet: View {
 
     private func runImport() {
         guard let file = importFile else { return }
+        if isFullDump {
+            Task { await vm.importFullDump(from: file) }
+            return
+        }
         let name = targetName.trimmingCharacters(in: .whitespacesAndNewlines)
         switch activeKind {
         case .some(.sqlite):
@@ -289,7 +303,10 @@ struct ImportExportSheet: View {
         return !path.isEmpty
     }
 
+    private var isFullDump: Bool { activeKind == .mysql && fullDumpMode }
+
     private var canSubmit: Bool {
+        if isFullDump { return true }
         switch activeKind {
         case .some(.sqlite):
             return sqliteMode == .overwrite ? hasSQLiteFile : sqliteNewPath != nil
@@ -350,20 +367,26 @@ struct ImportExportSheet: View {
         return "Replaces \(URL(fileURLWithPath: path).lastPathComponent)."
     }
     private var confirmIsDestructive: Bool {
+        if isFullDump { return true }
         if activeKind == .sqlite { return sqliteMode == .overwrite }
         return pendingExists
     }
     private var confirmButtonTitle: String {
+        if isFullDump { return "Import all" }
         if activeKind == .sqlite { return sqliteMode == .overwrite ? "Replace" : "Save" }
         return pendingExists ? "Overwrite" : "Create & Import"
     }
     private var confirmTitle: String {
+        if isFullDump { return "Import all databases?" }
         if activeKind == .sqlite {
             return sqliteMode == .overwrite ? "Replace SQLite database?" : "Save to new file?"
         }
         return pendingExists ? "Overwrite database?" : "Create new database?"
     }
     private var confirmMessage: String {
+        if isFullDump {
+            return "Every database in the dump will be created or overwritten by its CREATE DATABASE/USE statements. This can't be undone."
+        }
         let name = targetName.trimmingCharacters(in: .whitespacesAndNewlines)
         if activeKind == .sqlite {
             return sqliteMode == .overwrite
