@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import KTStackKit
 
 struct KTEditorResultGrid: View {
@@ -56,7 +57,17 @@ struct KTEditorResultGrid: View {
             .contentShape(Rectangle())
             .onTapGesture { onSelect?(rowIndex) }
             .simultaneousGesture(TapGesture(count: 2).onEnded { onActivate?(rowIndex) })
+            .contextMenu {
+                Button("Copy Row") { copyRow(cells) }
+                if onActivate != nil { Button("Edit Row…") { onActivate?(rowIndex) } }
+            }
         }
+    }
+
+    private func copyRow(_ cells: [Cell]) {
+        let line = cells.map { $0.displayText ?? "NULL" }.joined(separator: "\t")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(line, forType: .string)
     }
 
     @ViewBuilder
@@ -66,6 +77,7 @@ struct KTEditorResultGrid: View {
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundStyle(KTColor.ink2)
                 .lineLimit(1)
+                .textSelection(.enabled)
                 .padding(.horizontal, 14).padding(.vertical, 8)
         } else {
             Text("NULL")

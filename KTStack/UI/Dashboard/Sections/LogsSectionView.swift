@@ -52,20 +52,15 @@ struct LogsSectionView: View {
     }
 
     private var sourceMenu: some View {
-        Menu {
-            ForEach(sources) { source in
-                Button(source.displayName) { selectedID = source.id }
-            }
-        } label: {
-            HStack(spacing: 7) {
-                Text(currentSourceName).font(.system(size: 13, weight: .medium)).foregroundStyle(KTColor.ink).lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(KTColor.muted)
-            }
-            .padding(.horizontal, 13).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+        KTDropdown(width: 260,
+                   options: sources.map { source in
+                       KTDropdownOption(label: source.displayName, active: source.id == selectedID) {
+                           selectedID = source.id
+                       }
+                   }) {
+            KTDropdownChevronLabel(text: currentSourceName)
         }
-        .menuStyle(.borderlessButton).fixedSize()
+        .fixedSize()
     }
 
     private var followToggle: some View {

@@ -13,6 +13,7 @@ struct SettingsView: View {
 
     @State private var confirmUninstall = false
     @State private var selectedTLD: String
+    @State private var tldDraft: String
     @State private var pendingTLD: String?
     @State private var confirmTLDChange = false
     @State private var tldError: String?
@@ -31,6 +32,7 @@ struct SettingsView: View {
         self.updater = updater
         self.uninstaller = uninstaller
         _selectedTLD = State(initialValue: preferences.tld)
+        _tldDraft = State(initialValue: preferences.tld)
     }
 
     var body: some View {
@@ -54,7 +56,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showShell) { sheetWrapper("Shell Integration", { showShell = false }) { ShellIntegrationSheetBody() } }
         .confirmationDialog("Change the dev TLD to .\(pendingTLD ?? "")?", isPresented: $confirmTLDChange) {
             Button("Change & Relaunch", role: .destructive) { applyTLDChange() }
-            Button("Cancel", role: .cancel) { selectedTLD = preferences.tld }
+            Button("Cancel", role: .cancel) { selectedTLD = preferences.tld; tldDraft = preferences.tld }
         } message: { Text(tldChangeMessage) }
         .confirmationDialog("Uninstall KTStack and remove all data?", isPresented: $confirmUninstall) {
             Button("Uninstall / Reset", role: .destructive) { uninstaller.uninstall() }
@@ -86,8 +88,8 @@ struct SettingsView: View {
             KTSettingsRow(title: "Default PHP version", subtitle: "Applied to newly created sites.") {
                 defaultPHPMenu
             }
-            KTSettingsRow(title: "Local TLD", subtitle: tldError ?? "Domain suffix for resolved sites.") {
-                localTLDMenu
+            KTSettingsRow(title: "Local TLD", subtitle: tldError ?? "Domain suffix for resolved sites. Press return to apply.") {
+                localTLDField
             }
             KTSettingsRow(title: "Serve over HTTPS", subtitle: "Issue trusted local certificates per site.", showDivider: false) {
                 KTToggle(isOn: preferences.serveHTTPSByDefault) { preferences.serveHTTPSByDefault.toggle() }
@@ -98,27 +100,47 @@ struct SettingsView: View {
     private var defaultPHPMenu: some View {
         let installed = runtimes.installed[.php] ?? []
         let current = runtimes.defaultVersion(.php)
-        return Menu {
-            ForEach(installed, id: \.self) { version in
-                Button("PHP \(version)") { runtimes.setGlobalDefault(.php, version) }
-            }
-        } label: {
-            KTSettingsMenuValue(text: current.map { "PHP \($0)" } ?? "—")
+        return KTDropdown(width: 150,
+                          options: installed.map { version in
+                              KTDropdownOption(label: "PHP \(version)", active: version == current) {
+                                  runtimes.setGlobalDefault(.php, version)
+                              }
+                          }) {
+            KTDropdownChevronLabel(text: current.map { "PHP \($0)" } ?? "—")
         }
-        .menuStyle(.borderlessButton).fixedSize()
+        .fixedSize()
         .disabled(installed.isEmpty)
     }
 
-    private var localTLDMenu: some View {
-        Menu {
-            ForEach(AppPreferences.safeTLDs, id: \.self) { tld in
-                Button(".\(tld)") { selectTLD(tld) }
-            }
-        } label: {
-            KTSettingsMenuValue(text: ".\(selectedTLD)", mono: true)
+    private var localTLDField: some View {
+        HStack(spacing: 1) {
+            Text(".").font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundStyle(KTColor.ink2)
+            TextField("test", text: $tldDraft)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(KTColor.ink2)
+                .frame(width: 88)
+                .onSubmit(commitTLD)
         }
-        .menuStyle(.borderlessButton).fixedSize()
+        .padding(.horizontal, 11).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTColor.fieldBg))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
         .disabled(dns.isBusy || awaitingRelaunch)
+    }
+
+    private func commitTLD() {
+        let next = tldDraft.trimmingCharacters(in: .whitespaces).lowercased()
+        tldDraft = next
+        guard next != preferences.tld else { tldError = nil; return }
+        guard AppPreferences.isValidTLD(next) else {
+            tldError = "“\(next)” isn’t a valid TLD."
+            tldDraft = preferences.tld
+            return
+        }
+        tldError = nil
+        selectedTLD = next
+        pendingTLD = next
+        confirmTLDChange = true
     }
 
     private var updatesGroup: some View {
@@ -137,14 +159,15 @@ struct SettingsView: View {
     }
 
     private var releaseChannelMenu: some View {
-        Menu {
-            ForEach(AppPreferences.ReleaseChannel.allCases) { channel in
-                Button(channel.label) { selectChannel(channel) }
-            }
-        } label: {
-            KTSettingsMenuValue(text: preferences.releaseChannel.label)
+        KTDropdown(width: 140,
+                   options: AppPreferences.ReleaseChannel.allCases.map { channel in
+                       KTDropdownOption(label: channel.label, active: channel == preferences.releaseChannel) {
+                           selectChannel(channel)
+                       }
+                   }) {
+            KTDropdownChevronLabel(text: preferences.releaseChannel.label)
         }
-        .menuStyle(.borderlessButton).fixedSize()
+        .fixedSize()
     }
 
     private var maintenanceGroup: some View {
@@ -184,13 +207,6 @@ struct SettingsView: View {
     private func selectChannel(_ channel: AppPreferences.ReleaseChannel) {
         preferences.releaseChannel = channel
         updater.setChannel(channel == .beta ? "beta" : "")
-    }
-
-    private func selectTLD(_ tld: String) {
-        guard tld != preferences.tld else { return }
-        selectedTLD = tld
-        pendingTLD = tld
-        confirmTLDChange = true
     }
 
     private var affectedSites: [Site] {
