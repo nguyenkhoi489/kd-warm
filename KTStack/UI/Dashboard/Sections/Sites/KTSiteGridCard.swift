@@ -46,9 +46,8 @@ struct KTSiteGridCard: View {
                 KTButton(title: "Open", kind: .secondary, action: onOpen)
                     .disabled(!canOpen)
                     .frame(maxWidth: .infinity)
-                KTSiteActionsMenu(site: site, canOpen: canOpen, isSharing: isSharing,
-                                  onOpenLogs: onOpenLogs, onToggleShare: onToggleShare,
-                                  onRemove: onRemove, onError: onError)
+                KTSiteActionsMenu(site: site, canOpen: canOpen,
+                                  onOpenLogs: onOpenLogs, onRemove: onRemove, onError: onError)
             }
             .padding(.top, 14)
         }

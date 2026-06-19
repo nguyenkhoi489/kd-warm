@@ -79,9 +79,8 @@ struct KTSiteListRow: View {
             KTButton(title: "Open", kind: .secondary, action: onOpen)
                 .disabled(!canOpen)
 
-            KTSiteActionsMenu(site: site, canOpen: canOpen, isSharing: isSharing,
-                              onOpenLogs: onOpenLogs, onToggleShare: onToggleShare,
-                              onRemove: onRemove, onError: onError)
+            KTSiteActionsMenu(site: site, canOpen: canOpen,
+                              onOpenLogs: onOpenLogs, onRemove: onRemove, onError: onError)
         }
         .padding(.vertical, 13)
         .padding(.horizontal, 16)

@@ -50,20 +50,20 @@ struct KTNewSiteForm: View {
                 }
             }
             row("Type") {
-                menuField(menu: {
-                    ForEach(NewSiteKind.allCases) { k in
-                        Button(kindLabel(k)) { kind = k }
-                    }
-                }, leading: {
-                    KTBadge(text: kindBadge(kind), tint: kindTint(kind))
-                }, value: kindLabel(kind))
+                formDropdown(width: 220,
+                             options: NewSiteKind.allCases.map { k in
+                                 KTDropdownOption(label: kindLabel(k), active: k == kind) { kind = k }
+                             },
+                             leading: { KTBadge(text: kindBadge(kind), tint: kindTint(kind)) },
+                             value: kindLabel(kind))
             }
             row("PHP Version") {
-                menuField(menu: {
-                    ForEach(availableVersions, id: \.self) { v in
-                        Button("PHP \(v)") { phpVersion = v }
-                    }
-                }, leading: { phpBadge }, value: "PHP \(phpVersion)")
+                formDropdown(width: 150,
+                             options: availableVersions.map { v in
+                                 KTDropdownOption(label: "PHP \(v)", active: v == phpVersion) { phpVersion = v }
+                             },
+                             leading: { phpBadge },
+                             value: "PHP \(phpVersion)")
             }
             row("Admin Password", topAligned: true) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -162,12 +162,12 @@ struct KTNewSiteForm: View {
             .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(KTColor.fieldBorderStrong, lineWidth: 1.5))
     }
 
-    private func menuField<M: View, L: View>(@ViewBuilder menu: () -> M, @ViewBuilder leading: () -> L, value: String) -> some View {
-        Menu {
-            menu()
-        } label: {
+    private func formDropdown<L: View>(width: CGFloat, options: [KTDropdownOption],
+                                       @ViewBuilder leading: () -> L, value: String) -> some View {
+        let lead = leading()
+        return KTDropdown(width: width, options: options) {
             HStack(spacing: 11) {
-                leading()
+                lead
                 Text(value).font(.system(size: 14.5, weight: .medium)).foregroundStyle(KTColor.ink)
                 Spacer()
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)).foregroundStyle(KTColor.muted)
@@ -177,8 +177,6 @@ struct KTNewSiteForm: View {
             .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(.white))
             .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(KTColor.fieldBorderStrong, lineWidth: 1.5))
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
     }
 
     private func smallTile<V: View>(_ tint: KTTint, @ViewBuilder content: () -> V) -> some View {
