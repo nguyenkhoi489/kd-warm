@@ -24,6 +24,13 @@ echo "📝 Step 1: Generate Xcode project"
 xcodegen generate
 
 echo ""
+echo "🧹 Step 1.5: Reset SwiftPM cache (stale absolute paths break binary targets after a move/rename)"
+rm -rf .build-xcode/SourcePackages
+xcodebuild -project KTStack.xcodeproj -scheme KTStack \
+    -derivedDataPath .build-xcode \
+    -resolvePackageDependencies
+
+echo ""
 echo "🏗️  Step 2: Build app (Release)"
 xcodebuild -project KTStack.xcodeproj \
     -scheme KTStack \
