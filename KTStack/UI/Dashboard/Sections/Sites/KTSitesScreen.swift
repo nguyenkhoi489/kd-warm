@@ -80,9 +80,20 @@ private struct KTSitesContent: View {
         .background(KTColor.contentBg)
         .sheet(isPresented: $showScan) { ScanImportSheet(registry: registry, sitesRoot: preferences.sitesRootURL) }
         .sheet(isPresented: $showImport) { MigrateImportSheet(registry: registry, availableVersions: server.availableVersions) }
-        .sheet(isPresented: $showNew) { NewSiteSheet(registry: registry, availableVersions: server.availableVersions, sitesRoot: preferences.sitesRootURL, tld: registry.tld) }
         .sheet(isPresented: $showAdd) { AddSiteSheet(registry: registry, availableVersions: server.availableVersions, sitesRoot: preferences.sitesRootURL) }
         .alert(item: $pendingRemoval, content: removeAlert)
+        .overlay {
+            if showNew {
+                KTModalCard(icon: "plus.app", tint: KTIconTint.cube,
+                            title: "New Site", subtitle: "Create a new local development site",
+                            width: 680, onClose: { showNew = false }) {
+                    KTNewSiteForm(registry: registry, availableVersions: server.availableVersions,
+                                  sitesRoot: preferences.sitesRootURL, tld: registry.tld,
+                                  onClose: { showNew = false })
+                }
+                .transition(.opacity)
+            }
+        }
     }
 
     private var serverStatusRow: some View {
