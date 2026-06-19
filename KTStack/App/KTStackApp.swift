@@ -15,7 +15,8 @@ struct KTStackApp: App {
 
     var body: some Scene {
 
-        MenuBarExtra("KTStack", image: "MenuBarGlyph", isInserted: $showInMenuBar) {
+        MenuBarExtra("KTStack", image: "MenuBarGlyph",
+                     isInserted: Binding(get: { showInMenuBar }, set: { _ in })) {
             MenuBarContentView()
                 .environmentObject(appDelegate.server)
                 .environmentObject(appDelegate.services)
