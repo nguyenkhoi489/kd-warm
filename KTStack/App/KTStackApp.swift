@@ -6,6 +6,7 @@ import KTStackKit
 @main
 struct KTStackApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @AppStorage("KTStack.showInMenuBar") private var showInMenuBar = true
 
     init() {
         LegacyKDWarmMigration.runIfNeeded()
@@ -13,8 +14,8 @@ struct KTStackApp: App {
     }
 
     var body: some Scene {
-        
-        MenuBarExtra("KTStack", image: "MenuBarGlyph") {
+
+        MenuBarExtra("KTStack", image: "MenuBarGlyph", isInserted: $showInMenuBar) {
             MenuBarContentView()
                 .environmentObject(appDelegate.server)
                 .environmentObject(appDelegate.services)
@@ -57,10 +58,11 @@ struct KTStackApp: App {
             SettingsView(preferences: appDelegate.preferences,
                          dns: appDelegate.dns,
                          server: appDelegate.server,
+                         runtimes: appDelegate.runtimes,
                          caTrust: appDelegate.caTrust,
                          updater: appDelegate.updater,
                          uninstaller: appDelegate.uninstaller)
-                .frame(width: 480, height: 360)   // the standalone Settings window's fixed size
+                .frame(width: 480, height: 560)   // the standalone Settings window's fixed size
         }
     }
 }
@@ -139,6 +141,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = services
         tunnels.reapStaleJobs()
         server.onSitesChanged = { [tunnels] sites in tunnels.reconcile(sites: sites) }
+        applyStartupPreferences()
+    }
+
+    @MainActor private func applyStartupPreferences() {
+        if HelperIdentity.hasSigningIdentity { preferences.launchAtLogin = LoginItemService.isEnabled }
+        updater.setAutomaticChecks(preferences.automaticUpdates)
+        updater.setChannel(preferences.releaseChannel == .beta ? "beta" : "")
+        if preferences.autoStartServer && !server.isRunning { server.start() }
     }
 
     

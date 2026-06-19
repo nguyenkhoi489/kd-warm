@@ -89,6 +89,7 @@ private struct KTSitesContent: View {
                             width: 680, onClose: { showNew = false }) {
                     KTNewSiteForm(registry: registry, availableVersions: server.availableVersions,
                                   sitesRoot: preferences.sitesRootURL, tld: registry.tld,
+                                  defaultHTTPS: preferences.serveHTTPSByDefault,
                                   onClose: { showNew = false })
                 }
                 .transition(.opacity)

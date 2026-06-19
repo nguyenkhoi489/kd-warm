@@ -2,39 +2,31 @@ import SwiftUI
 import AppKit
 import KTStackKit
 
-
 struct SettingsView: View {
-    private enum SettingsTab: String, CaseIterable, Identifiable {
-        case general = "General", services = "Services", tls = "TLS", advanced = "Advanced"
-        var id: String { rawValue }
-    }
-    @State private var tab: SettingsTab = .general
-
     @ObservedObject var preferences: AppPreferences
     @ObservedObject var dns: DNSAutomationService
-
     let server: LocalServerController
+    @ObservedObject var runtimes: RuntimeManager
     @ObservedObject var caTrust: CATrustService
     @ObservedObject var updater: UpdaterController
     @ObservedObject var uninstaller: UninstallService
-    @State private var confirmUninstall = false
 
-    
+    @State private var confirmUninstall = false
     @State private var selectedTLD: String
     @State private var pendingTLD: String?
     @State private var confirmTLDChange = false
     @State private var tldError: String?
     @State private var awaitingRelaunch = false
+    @State private var showTLS = false
+    @State private var showShell = false
 
-    init(preferences: AppPreferences,
-         dns: DNSAutomationService,
-         server: LocalServerController,
-         caTrust: CATrustService,
-         updater: UpdaterController,
+    init(preferences: AppPreferences, dns: DNSAutomationService, server: LocalServerController,
+         runtimes: RuntimeManager, caTrust: CATrustService, updater: UpdaterController,
          uninstaller: UninstallService) {
         self.preferences = preferences
         self.dns = dns
         self.server = server
+        self.runtimes = runtimes
         self.caTrust = caTrust
         self.updater = updater
         self.uninstaller = uninstaller
@@ -42,61 +34,28 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-
-            Picker("", selection: $tab) {
-                ForEach(SettingsTab.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: .infinity)
-            .padding(KDSpacing.space2)
-            Divider()
-            tabContent
-        }
-
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private var tabContent: some View {
-        switch tab {
-        case .general:  generalTab
-        case .services: servicesTab
-        case .tls:      TLSSettingsView(caTrust: caTrust)
-        case .advanced: advancedTab
-        }
-    }
-
-    private var uninstallGlyph: String {
-        switch uninstaller.state {
-        case .done:        return "checkmark.circle"
-        case .failed:      return "exclamationmark.triangle.fill"
-        default:           return "circle.dotted"
-        }
-    }
-
-    private var advancedTab: some View {
-        Form {
-            Section("Software Update") {
-                Button("Check for Updates…") { updater.checkForUpdates() }
-                    .disabled(!updater.canCheckForUpdates)
-            }
-            ShellIntegrationView()
-            Section("Uninstall") {
-                Text("Removes all KTStack services, the .\(preferences.tld) DNS resolver, the local CA trust, and all app data, runtimes and databases.")
-                    .font(KDFont.footnote).foregroundStyle(.secondary)
-                Button("Uninstall / Reset KTStack…", role: .destructive) { confirmUninstall = true }
-                    .disabled(uninstaller.state == .running)
-                if !uninstaller.log.isEmpty {
-                    ForEach(uninstaller.log, id: \.self) { line in
-                        Label(line, systemImage: uninstallGlyph).font(KDFont.footnote)
-                    }
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Settings").font(KTType.screenTitle).tracking(KTType.screenTitleTracking).foregroundStyle(KTColor.ink)
+                .padding(.horizontal, KTSpacing.screenGutter).padding(.top, 18)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    generalGroup
+                    sitesGroup
+                    updatesGroup
+                    maintenanceGroup
                 }
+                .frame(maxWidth: 720, alignment: .leading)
+                .padding(.horizontal, KTSpacing.screenGutter).padding(.top, 18).padding(.bottom, 24)
             }
         }
-        .formStyle(.grouped)
-        .padding(KDSpacing.space4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(KTColor.contentBg)
+        .sheet(isPresented: $showTLS) { sheetWrapper("HTTPS Certificates", { showTLS = false }) { TLSSettingsView(caTrust: caTrust) } }
+        .sheet(isPresented: $showShell) { sheetWrapper("Shell Integration", { showShell = false }) { ShellIntegrationSheetBody() } }
+        .confirmationDialog("Change the dev TLD to .\(pendingTLD ?? "")?", isPresented: $confirmTLDChange) {
+            Button("Change & Relaunch", role: .destructive) { applyTLDChange() }
+            Button("Cancel", role: .cancel) { selectedTLD = preferences.tld }
+        } message: { Text(tldChangeMessage) }
         .confirmationDialog("Uninstall KTStack and remove all data?", isPresented: $confirmUninstall) {
             Button("Uninstall / Reset", role: .destructive) { uninstaller.uninstall() }
             Button("Cancel", role: .cancel) {}
@@ -105,50 +64,133 @@ struct SettingsView: View {
         }
     }
 
-    private var generalTab: some View {
-        Form {
-            Section("Sites") {
-                HStack {
-                    Text("Sites root")
-                    Spacer()
-                    Text(preferences.sitesRootPath)
-                        .font(KDFont.footnote).foregroundStyle(.secondary)
-                        .lineLimit(1).truncationMode(.middle)
-                    Button("Choose…") { chooseSitesRoot() }
-                }
+    private var generalGroup: some View {
+        KTSettingsGroup(title: "General") {
+            KTSettingsRow(title: "Launch at login", subtitle: "Start KTStack when you log in to macOS.") {
+                KTToggle(isOn: preferences.launchAtLogin, action: toggleLaunchAtLogin)
             }
-            Section("Local domain") {
-                Picker("Dev TLD", selection: $selectedTLD) {
-                    ForEach(AppPreferences.safeTLDs, id: \.self) { Text(".\($0)").tag($0) }
-                }
-                .disabled(dns.isBusy || awaitingRelaunch)
-                .onChange(of: selectedTLD) { newValue in
-                    guard newValue != preferences.tld else { return }
-                    pendingTLD = newValue
-                    confirmTLDChange = true
-                }
-                Text("Changing the TLD rewrites the system DNS resolver and dnsmasq, then relaunches KTStack. Existing sites keep their current domain until you re-edit them.")
-                    .font(KDFont.footnote).foregroundStyle(.secondary)
-                if dns.isBusy {
-                    Label("Updating DNS resolver…", systemImage: "arrow.triangle.2.circlepath")
-                        .font(KDFont.footnote)
-                }
-                if let tldError {
-                    Label(tldError, systemImage: "exclamationmark.triangle.fill")
-                        .font(KDFont.footnote).foregroundStyle(.red)
-                }
+            KTSettingsRow(title: "Auto-start server", subtitle: "Bring the server up automatically on launch.") {
+                KTToggle(isOn: preferences.autoStartServer) { preferences.autoStartServer.toggle() }
             }
-            Toggle("Launch KTStack at login", isOn: .constant(false)).disabled(true)
+            KTSettingsRow(title: "Show in menu bar", subtitle: "Quick-access icon. If hidden, reopen KTStack from Finder.", showDivider: false) {
+                KTToggle(isOn: preferences.showInMenuBar) { preferences.showInMenuBar.toggle() }
+            }
         }
-        .formStyle(.grouped)
-        .padding(KDSpacing.space4)
-        .confirmationDialog("Change the dev TLD to .\(pendingTLD ?? "")?",
-                            isPresented: $confirmTLDChange) {
-            Button("Change & Relaunch", role: .destructive) { applyTLDChange() }
-            Button("Cancel", role: .cancel) { selectedTLD = preferences.tld }
-        } message: {
-            Text(tldChangeMessage)
+    }
+
+    private var sitesGroup: some View {
+        KTSettingsGroup(title: "Sites & Network") {
+            KTSettingsRow(title: "Sites root", subtitle: preferences.sitesRootPath) {
+                KTSettingsTextButton(title: "Choose…", action: chooseSitesRoot)
+            }
+            KTSettingsRow(title: "Default PHP version", subtitle: "Applied to newly created sites.") {
+                defaultPHPMenu
+            }
+            KTSettingsRow(title: "Local TLD", subtitle: tldError ?? "Domain suffix for resolved sites.") {
+                localTLDMenu
+            }
+            KTSettingsRow(title: "Serve over HTTPS", subtitle: "Issue trusted local certificates per site.", showDivider: false) {
+                KTToggle(isOn: preferences.serveHTTPSByDefault) { preferences.serveHTTPSByDefault.toggle() }
+            }
         }
+    }
+
+    private var defaultPHPMenu: some View {
+        let installed = runtimes.installed[.php] ?? []
+        let current = runtimes.defaultVersion(.php)
+        return Menu {
+            ForEach(installed, id: \.self) { version in
+                Button("PHP \(version)") { runtimes.setGlobalDefault(.php, version) }
+            }
+        } label: {
+            KTSettingsMenuValue(text: current.map { "PHP \($0)" } ?? "—")
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .disabled(installed.isEmpty)
+    }
+
+    private var localTLDMenu: some View {
+        Menu {
+            ForEach(AppPreferences.safeTLDs, id: \.self) { tld in
+                Button(".\(tld)") { selectTLD(tld) }
+            }
+        } label: {
+            KTSettingsMenuValue(text: ".\(selectedTLD)", mono: true)
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .disabled(dns.isBusy || awaitingRelaunch)
+    }
+
+    private var updatesGroup: some View {
+        KTSettingsGroup(title: "Updates") {
+            KTSettingsRow(title: "Automatic updates", subtitle: "Download and install updates in the background.") {
+                KTToggle(isOn: preferences.automaticUpdates, action: toggleAutomaticUpdates)
+            }
+            KTSettingsRow(title: "Release channel", subtitle: "Currently on \(versionString).") {
+                releaseChannelMenu
+            }
+            KTSettingsRow(title: "Check for updates", subtitle: "Look for a newer version now.", showDivider: false) {
+                KTSettingsTextButton(title: "Check Now") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            }
+        }
+    }
+
+    private var releaseChannelMenu: some View {
+        Menu {
+            ForEach(AppPreferences.ReleaseChannel.allCases) { channel in
+                Button(channel.label) { selectChannel(channel) }
+            }
+        } label: {
+            KTSettingsMenuValue(text: preferences.releaseChannel.label)
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+    }
+
+    private var maintenanceGroup: some View {
+        KTSettingsGroup(title: "Maintenance") {
+            KTSettingsRow(title: "Local HTTPS certificates", subtitle: "Manage the local certificate authority and trust.") {
+                KTSettingsTextButton(title: "Manage…") { showTLS = true }
+            }
+            KTSettingsRow(title: "Terminal shell integration", subtitle: "Use per-project PHP/Node versions from the terminal.") {
+                KTSettingsTextButton(title: "Manage…") { showShell = true }
+            }
+            KTSettingsRow(title: "Reset & Uninstall",
+                          subtitle: "Remove all services, DNS resolver, CA trust, app data, runtimes and databases.",
+                          showDivider: false) {
+                KTSettingsTextButton(title: "Uninstall…", danger: true) { confirmUninstall = true }
+                    .disabled(uninstaller.state == .running)
+            }
+        }
+    }
+
+    private var versionString: String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        return "v\(short)"
+    }
+
+    private func toggleLaunchAtLogin() {
+        let target = !preferences.launchAtLogin
+        if LoginItemService.setEnabled(target) { preferences.launchAtLogin = target }
+        else { preferences.launchAtLogin = LoginItemService.isEnabled }
+    }
+
+    private func toggleAutomaticUpdates() {
+        let target = !preferences.automaticUpdates
+        preferences.automaticUpdates = target
+        updater.setAutomaticChecks(target)
+    }
+
+    private func selectChannel(_ channel: AppPreferences.ReleaseChannel) {
+        preferences.releaseChannel = channel
+        updater.setChannel(channel == .beta ? "beta" : "")
+    }
+
+    private func selectTLD(_ tld: String) {
+        guard tld != preferences.tld else { return }
+        selectedTLD = tld
+        pendingTLD = tld
+        confirmTLDChange = true
     }
 
     private var affectedSites: [Site] {
@@ -182,12 +224,12 @@ struct SettingsView: View {
         dns.changeTLD(to: target) { result in
             switch result {
             case .success:
-                _ = preferences.setTLD(target)   // persist so the next launch bakes the new TLD
+                _ = preferences.setTLD(target)
                 awaitingRelaunch = true
                 relaunchApp()
             case .failure(let error):
                 tldError = error.localizedDescription
-                selectedTLD = preferences.tld     // revert the picker; nothing was persisted
+                selectedTLD = preferences.tld
             }
         }
     }
@@ -207,13 +249,22 @@ struct SettingsView: View {
         }
     }
 
-    private var servicesTab: some View {
-        Form {
-            LabeledContent("Reverse proxy", value: "Nginx")
-            LabeledContent("Local DNS", value: "dnsmasq · /etc/resolver/\(preferences.tld)")
-            LabeledContent("Local TLS", value: "mkcert (vendored)")
+    private func sheetWrapper<Content: View>(_ title: String, _ onDone: @escaping () -> Void,
+                                             @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(KTColor.ink)
+                Spacer()
+                Button("Done", action: onDone).keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            Divider()
+            content()
         }
-        .formStyle(.grouped)
-        .padding(KDSpacing.space4)
+        .frame(width: 540, height: 480)
     }
+}
+
+private struct ShellIntegrationSheetBody: View {
+    var body: some View { ShellIntegrationView() }
 }

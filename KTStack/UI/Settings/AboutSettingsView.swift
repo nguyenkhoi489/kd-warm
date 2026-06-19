@@ -1,45 +1,85 @@
 import SwiftUI
+import AppKit
 import KTStackKit
 
 struct AboutSettingsView: View {
-    private var version: String {
+    @EnvironmentObject private var updater: UpdaterController
+
+    private var versionLine: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
-        return build.isEmpty ? short : "\(short) (\(build))"
+        let arch = ProcessInfo.processInfo.machineIsAppleSilicon ? "Apple Silicon" : "Intel"
+        let buildPart = build.isEmpty ? "" : " · Build \(build)"
+        return "Version \(short)\(buildPart) · \(arch)"
     }
 
     var body: some View {
-        Form {
-            Section {
-                HStack(spacing: KDSpacing.space3) {
-                    Image(systemName: "bolt.horizontal.circle.fill")
-                        .font(.system(size: 40)).foregroundStyle(Color.accentColor)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("KTStack").font(KDFont.title)
-                        Text("Local web development host manager for macOS")
-                            .font(KDFont.footnote).foregroundStyle(.secondary)
-                        Text("Version \(version)").font(KDFont.footnote).foregroundStyle(.tertiary)
-                    }
-                }
-                .padding(.vertical, KDSpacing.space1)
-            }
-
-            Section("Author") {
-                LabeledContent("Tác giả", value: "Minh Trang")
-                HStack {
-                    Text("Website")
-                    Spacer()
-                    Link("nguyenkhoi.dev", destination: URL(string: "https://nguyenkhoi.dev")!)
-                        .font(KDFont.body)
-                }
-            }
-
-            Section {
-                Text("© 2026 Minh Trang · nguyenkhoi.dev")
-                    .font(KDFont.footnote).foregroundStyle(.secondary)
-            }
+        VStack(spacing: 0) {
+            appIcon
+            Text("KTStack").font(.system(size: 28, weight: .bold)).tracking(-0.6).foregroundStyle(KTColor.ink)
+                .padding(.top, 20)
+            Text(versionLine).font(.system(size: 14)).foregroundStyle(Color(hex: 0x8E8E93)).padding(.top, 6)
+            Text("A blazing-fast local development environment for macOS. Run unlimited sites, switch PHP & Node versions instantly, and inspect everything in one place.")
+                .font(.system(size: 15)).foregroundStyle(KTColor.ink2)
+                .multilineTextAlignment(.center).lineSpacing(4).frame(maxWidth: 420).padding(.top, 18)
+            checkButton.padding(.top, 24)
+            linkRow.padding(.top, 26)
+            Text("© 2026 KTStack. Built with care in Hanoi.")
+                .font(.system(size: 12)).foregroundStyle(Color(hex: 0xB0B0B8)).padding(.top, 34)
         }
-        .formStyle(.grouped)
-        .padding(KDSpacing.space4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+        .background(KTColor.contentBg)
+    }
+
+    private var appIcon: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable().interpolation(.high)
+            .frame(width: 88, height: 88)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Color(hex: 0x140F28, opacity: 0.5), radius: 17, y: 8)
+    }
+
+    private var checkButton: some View {
+        Button { updater.checkForUpdates() } label: {
+            Text("Check for Updates").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 22).padding(.vertical, 11)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(KTColor.accentGradient))
+                .shadow(color: KTColor.accent.opacity(0.55), radius: 5, y: 4)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!updater.canCheckForUpdates)
+        .opacity(updater.canCheckForUpdates ? 1 : 0.6)
+    }
+
+    private var linkRow: some View {
+        HStack(spacing: 22) {
+            link("Website", "https://github.com/KTStackAPP/KTStack")
+            link("Documentation", "https://github.com/KTStackAPP/KTStack#readme")
+            link("Release Notes", "https://github.com/KTStackAPP/KTStack/releases")
+            link("GitHub", "https://github.com/KTStackAPP/KTStack")
+        }
+    }
+
+    private func link(_ title: String, _ url: String) -> some View {
+        Button {
+            if let target = URL(string: url) { NSWorkspace.shared.open(target) }
+        } label: {
+            Text(title).font(.system(size: 13.5, weight: .medium)).foregroundStyle(KTColor.accent)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension ProcessInfo {
+    var machineIsAppleSilicon: Bool {
+        var info = utsname()
+        uname(&info)
+        let machine = withUnsafeBytes(of: &info.machine) { raw -> String in
+            let bytes = raw.prefix { $0 != 0 }
+            return String(decoding: bytes, as: UTF8.self)
+        }
+        return machine.hasPrefix("arm")
     }
 }

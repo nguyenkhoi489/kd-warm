@@ -7,6 +7,7 @@ struct KTNewSiteForm: View {
     let availableVersions: [String]
     let sitesRoot: URL
     let tld: String
+    var defaultHTTPS = true
     let onClose: () -> Void
 
     @StateObject private var model = NewSiteModel()
@@ -34,6 +35,7 @@ struct KTNewSiteForm: View {
             }
             footer
         }
+        .onAppear { serveHTTPS = defaultHTTPS }
     }
 
     private var form: some View {

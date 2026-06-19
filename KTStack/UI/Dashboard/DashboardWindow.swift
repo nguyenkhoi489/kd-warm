@@ -9,6 +9,7 @@ struct DashboardWindow: View {
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var dns: DNSAutomationService
     @EnvironmentObject private var server: LocalServerController
+    @EnvironmentObject private var runtimes: RuntimeManager
     @EnvironmentObject private var caTrust: CATrustService
     @EnvironmentObject private var updater: UpdaterController
     @EnvironmentObject private var uninstaller: UninstallService
@@ -53,7 +54,8 @@ struct DashboardWindow: View {
         case .logs:     LogsSectionView(targetSourceID: logTarget)
         case .mail:     MailSectionView()
         case .settings: SettingsView(preferences: preferences, dns: dns, server: server,
-                                     caTrust: caTrust, updater: updater, uninstaller: uninstaller)
+                                     runtimes: runtimes, caTrust: caTrust, updater: updater,
+                                     uninstaller: uninstaller)
                             .navigationTitle("Settings")
         case .about:    AboutSettingsView().navigationTitle("About")
         case .database: KTDatabaseScreen()
