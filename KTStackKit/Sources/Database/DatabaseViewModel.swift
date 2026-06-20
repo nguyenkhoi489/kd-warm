@@ -39,8 +39,13 @@ public final class DatabaseViewModel: ObservableObject {
 
     @Published public internal(set) var currentActivityLabel: String?
 
+    @Published public internal(set) var activeFilters: [FilterCondition] = []
+    @Published public internal(set) var activeSort: SortSpec?
+
     private var isIncrementalBrowse = false
     private var schemaColumnsLoaded = false
+
+    private var browseDialect: SQLDialect { SQLDialect.forKind(selectedProfile?.kind ?? .mysql) }
 
     @Published public internal(set) var currentColumns: [ColumnInfo] = []
 
@@ -136,6 +141,7 @@ public final class DatabaseViewModel: ObservableObject {
         schemaCatalog = .empty
         pageOffset = 0; hasMorePages = false; isBusy = false; isFetchingMore = false
         isIncrementalBrowse = false; schemaColumnsLoaded = false; currentActivityLabel = nil
+        activeFilters = []; activeSort = nil
         if let previousDriver { Task { await previousDriver.closeSession() } }
     }
 
@@ -201,6 +207,7 @@ public final class DatabaseViewModel: ObservableObject {
         tables = []; selectedTable = nil; result = nil; resultError = nil; resultSource = .none
         clearQueryTabResults()
         schemaCatalog = .empty; schemaColumnsLoaded = false
+        activeFilters = []; activeSort = nil
         return true
     }
 
@@ -249,6 +256,7 @@ public final class DatabaseViewModel: ObservableObject {
         selectedTable = table
         pageOffset = 0
         isIncrementalBrowse = false
+        activeFilters = []; activeSort = nil
         currentColumns = []
         currentIndexes = []
         let token = beginOperation()
@@ -262,6 +270,56 @@ public final class DatabaseViewModel: ObservableObject {
             currentColumns = []
         }
         await loadPage()
+    }
+
+    // MARK: - Filter + sort
+
+    public func applyFilters(_ filters: [FilterCondition]) async {
+        activeFilters = filters.filter { columnIsBrowsable($0.column) }
+        pageOffset = 0; isIncrementalBrowse = false
+        await loadPage()
+    }
+
+    public func applySort(_ sort: SortSpec?) async {
+        if let sort, !columnIsBrowsable(sort.column) { return }
+        activeSort = sort
+        pageOffset = 0; isIncrementalBrowse = false
+        await loadPage()
+    }
+
+    public func toggleSort(column: String) async {
+        guard columnIsBrowsable(column) else { return }
+        let next: SortSpec?
+        if activeSort?.column == column {
+            next = activeSort?.ascending == true ? SortSpec(column: column, ascending: false) : nil
+        } else {
+            next = SortSpec(column: column, ascending: true)
+        }
+        await applySort(next)
+    }
+
+    public func clearFiltersAndSort() async {
+        guard !activeFilters.isEmpty || activeSort != nil else { return }
+        activeFilters = []; activeSort = nil
+        pageOffset = 0; isIncrementalBrowse = false
+        await loadPage()
+    }
+
+    private func columnIsBrowsable(_ name: String) -> Bool {
+        currentColumns.contains { $0.name == name }
+    }
+
+    private func fetchBrowsePage(database: String, table: String,
+                                 limit: Int, offset: Int) async throws -> QueryResult {
+        guard let driver else { throw DatabaseError.connection("No active connection") }
+        if activeFilters.isEmpty, activeSort == nil {
+            return try await driver.paginatedRows(database: database, table: table,
+                                                  limit: limit, offset: offset)
+        }
+        let statement = try browseDialect.browseSelect(
+            schema: database, table: table,
+            filters: activeFilters, sort: activeSort, limit: limit, offset: offset)
+        return try await driver.runSelect(statement, database: database)
     }
 
     // MARK: - Pagination
@@ -291,7 +349,7 @@ public final class DatabaseViewModel: ObservableObject {
         currentActivityLabel = "Loading more…"
         defer { isFetchingMore = false; currentActivityLabel = nil }
         do {
-            let page = try await driver.paginatedRows(
+            let page = try await fetchBrowsePage(
                 database: database, table: table.name, limit: pageSize + 1, offset: nextOffset)
             guard token == generation, let latest = result, latest.columns == expectedColumns else { return }
             if page.rows.isEmpty {
@@ -324,7 +382,7 @@ public final class DatabaseViewModel: ObservableObject {
         let loadedCount = current.rowCount
         let token = beginOperation()
         do {
-            let page = try await driver.paginatedRows(
+            let page = try await fetchBrowsePage(
                 database: database, table: table.name, limit: loadedCount + 1, offset: 0)
             guard token == generation else { return }
             let hasMore = page.rowCount > loadedCount
@@ -348,7 +406,7 @@ public final class DatabaseViewModel: ObservableObject {
         let token = beginOperation()
         currentActivityLabel = "Loading rows…"
         do {
-            let page = try await driver.paginatedRows(
+            let page = try await fetchBrowsePage(
                 database: database, table: table.name, limit: pageSize + 1, offset: pageOffset)
             guard token == generation else { return }
             let hasMore = page.rowCount > pageSize

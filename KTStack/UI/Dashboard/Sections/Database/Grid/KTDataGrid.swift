@@ -7,6 +7,8 @@ struct KTDataGrid: NSViewRepresentable {
     var selectedRow: Binding<Int?>? = nil
     var onActivate: ((Int) -> Void)? = nil
     var onNearEnd: (() -> Void)? = nil
+    var sort: SortSpec? = nil
+    var onSortColumn: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(result: result) }
 
@@ -48,6 +50,8 @@ struct KTDataGrid: NSViewRepresentable {
         context.coordinator.selectedRow = selectedRow
         context.coordinator.onActivate = onActivate
         context.coordinator.onNearEnd = onNearEnd
+        context.coordinator.sort = sort
+        context.coordinator.onSortColumn = onSortColumn
         context.coordinator.apply(result)
     }
 
@@ -62,6 +66,8 @@ struct KTDataGrid: NSViewRepresentable {
         var selectedRow: Binding<Int?>?
         var onActivate: ((Int) -> Void)?
         var onNearEnd: (() -> Void)?
+        var sort: SortSpec?
+        var onSortColumn: ((String) -> Void)?
         private var nearEndRequested = false
 
         static let cellFont: NSFont =
@@ -146,6 +152,27 @@ struct KTDataGrid: NSViewRepresentable {
             if columnsChanged { rebuildColumns(for: newResult) }
             if rowCountChanged { nearEndRequested = false }
             table?.reloadData()
+            updateSortIndicators()
+        }
+
+        func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
+            guard let onSortColumn else { return }
+            onSortColumn(tableColumn.title)
+        }
+
+        private func updateSortIndicators() {
+            guard let table else { return }
+            for column in table.tableColumns {
+                if let sort, column.title == sort.column {
+                    table.setIndicatorImage(
+                        NSImage(systemSymbolName: sort.ascending ? "chevron.up" : "chevron.down",
+                                accessibilityDescription: nil),
+                        in: column)
+                    table.highlightedTableColumn = column
+                } else {
+                    table.setIndicatorImage(nil, in: column)
+                }
+            }
         }
 
         func rebuildColumns(for result: QueryResult) {

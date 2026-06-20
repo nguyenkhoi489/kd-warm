@@ -7,13 +7,83 @@ struct KTEditorDataTab: View {
     @Binding var editor: TableDataView.EditorMode?
     @Binding var pendingDelete: Int?
 
+    @State private var showFilterPopover = false
+
     var body: some View {
         VStack(spacing: 0) {
             contentHeader
             Rectangle().fill(KTColor.sep).frame(height: 0.5)
+            if vm.isTableBrowse {
+                filterBar
+                Rectangle().fill(KTColor.sep).frame(height: 0.5)
+            }
             body(for: vm.selectedTable)
         }
         .onAppear(perform: reloadIfNeeded)
+    }
+
+    private var filterBar: some View {
+        HStack(spacing: 8) {
+            Button { showFilterPopover = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "line.3.horizontal.decrease").font(.system(size: 10.5, weight: .semibold))
+                    Text("Filter").font(.jbMono(12, .medium))
+                }
+                .foregroundStyle(KTColor.ink2)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
+                KTColumnFilterPopover(
+                    columns: vm.currentColumns.map(\.name),
+                    onAdd: { condition in Task { await vm.applyFilters(vm.activeFilters + [condition]) } },
+                    onClose: { showFilterPopover = false })
+            }
+
+            ForEach(Array(vm.activeFilters.enumerated()), id: \.offset) { index, condition in
+                filterChip(condition, at: index)
+            }
+
+            if !vm.activeFilters.isEmpty || vm.activeSort != nil {
+                Button("Clear") { Task { await vm.clearFiltersAndSort(); selectedRow = nil } }
+                    .buttonStyle(.plain)
+                    .font(.jbMono(12, .medium))
+                    .foregroundStyle(KTColor.accent)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+
+    private func filterChip(_ condition: FilterCondition, at index: Int) -> some View {
+        HStack(spacing: 5) {
+            Text(chipLabel(condition)).font(.jbMono(11.5)).foregroundStyle(KTColor.ink2).lineLimit(1)
+            Button {
+                var next = vm.activeFilters
+                next.remove(at: index)
+                Task { await vm.applyFilters(next) }
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundStyle(KTColor.muted)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(KTColor.pillBg))
+    }
+
+    private func chipLabel(_ c: FilterCondition) -> String {
+        switch c.op {
+        case .isNull:    return "\(c.column) is null"
+        case .isNotNull: return "\(c.column) is not null"
+        case .equals:      return "\(c.column) = \(c.value.displayText ?? "")"
+        case .notEquals:   return "\(c.column) ≠ \(c.value.displayText ?? "")"
+        case .contains:    return "\(c.column) ⊃ \(c.value.displayText ?? "")"
+        case .greaterThan: return "\(c.column) > \(c.value.displayText ?? "")"
+        case .lessThan:    return "\(c.column) < \(c.value.displayText ?? "")"
+        }
     }
 
     private func reloadIfNeeded() {
@@ -29,7 +99,9 @@ struct KTEditorDataTab: View {
             KTDataGrid(result: result,
                        selectedRow: $selectedRow,
                        onActivate: { if vm.canEditRows { editor = .edit($0) } },
-                       onNearEnd: { Task { await vm.loadMoreRows() } })
+                       onNearEnd: { Task { await vm.loadMoreRows() } },
+                       sort: vm.activeSort,
+                       onSortColumn: { column in Task { await vm.toggleSort(column: column) } })
             footer(result)
         } else if let error = vm.resultError {
             messageState(icon: "exclamationmark.triangle", title: "Couldn’t load rows", message: error)
