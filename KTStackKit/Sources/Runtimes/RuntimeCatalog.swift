@@ -65,22 +65,44 @@ public struct RuntimeCatalog: Sendable {
 
     public func availableReleases(_ lang: RuntimeLanguage) -> [RuntimeRelease] {
         let installed = Set(installedVersions(lang))
-        return Self.manifest.filter { $0.language == lang && !installed.contains($0.version) }
+        return Self.manifest.filter { release in
+            guard release.language == lang else { return false }
+            if !installed.contains(release.version) { return true }
+            return lang == .php && needsMigration(release.version)
+        }
     }
 
-    public static let manifest: [RuntimeRelease] = [
+    private func sourceMarker(_ version: String) -> URL {
+        paths.runtimeDir("php", version).appendingPathComponent(".ktstack-source")
+    }
 
-        RuntimeRelease(language: .php, version: "8.4",
-                       url: "https://github.com/KTStackAPP/KTStack/releases/download/binaries-v1/php-8.4-arm64.tar.gz",
-                       sha256: "f56545ca569e50853a2498f59e618e5a6b81072188f4249e3e80bb71b760ee66"),
-        RuntimeRelease(language: .php, version: "8.3",
-                       url: "https://github.com/KTStackAPP/KTStack/releases/download/binaries-v1/php-8.3-arm64.tar.gz",
-                       sha256: "2b1a15bf9c6a7a832f500ad5a40c8fc6abdbea6cfe39e69543e09dc594920735"),
-        RuntimeRelease(language: .php, version: "8.1",
-                       url: "https://github.com/KTStackAPP/KTStack/releases/download/binaries-v1/php-8.1-arm64.tar.gz",
-                       sha256: "f88e284137a18934fcf131f1b9268269583c93fe8473c34f3484d2fed97fe3b8"),
+    public func needsMigration(_ version: String) -> Bool {
+        guard isInstalled(.php, version) else { return false }
+        return !FileManager.default.fileExists(atPath: sourceMarker(version).path)
+    }
+
+    public func markBottleSource(_ version: String) {
+        try? "bottle\n".write(to: sourceMarker(version), atomically: true, encoding: .utf8)
+    }
+
+    static let phpRuntimeVersions = ["7.4", "8.0", "8.1", "8.2", "8.3", "8.4"]
+
+    public static let manifest: [RuntimeRelease] = phpRuntimeVersions.map { version in
+        RuntimeRelease(language: .php, version: version,
+                       url: "https://github.com/KTStackAPP/KTStack/releases/download/binaries-v1/php-\(version)-arm64.tar.gz",
+                       sha256: phpArtifactChecksums[version] ?? "")
+    } + [
         RuntimeRelease(language: .node, version: "22.22.3",
                        url: "https://nodejs.org/dist/v22.22.3/node-v22.22.3-darwin-arm64.tar.gz",
                        sha256: "0da7ff74ef8611328c8212f17943368713a2ad953fb7d89a8c8a0eae87c23207"),
+    ]
+
+    static let phpArtifactChecksums: [String: String] = [
+        "7.4": "303e7a893dd5a8e96a863b9cda74a2834121c98903a0f5136e8d59228c3ba2b4",
+        "8.0": "d88102cd8c69a25451f3c33d91c64326d0ad5dcc382c25af435d55ccc1897345",
+        "8.1": "974a4141c83ba68a146945d2eb15bc18b8165a0f7deb1598d8061f6c87b589cb",
+        "8.2": "3ba0e36b504bf202b6764d07a4c3d1f086eb5fa6ecfe037e222cbc269733f2d8",
+        "8.3": "7eab0f81067d4cbdcc274df6fa18684f6d2fb73bfc2599573c7a02e4e96064a8",
+        "8.4": "5451afde00d8dcbec3d3bdd6136d4a45fb0004d463d2e980d8fdd1340dcab029",
     ]
 }
