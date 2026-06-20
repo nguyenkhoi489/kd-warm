@@ -33,7 +33,7 @@ struct QueryTabBar: View {
             .buttonStyle(.borderless)
             Button { vm.closeQueryTab(tab.id) } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 10, weight: .regular))
             }
             .buttonStyle(.borderless)
             .help("Close query tab")

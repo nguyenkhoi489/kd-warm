@@ -25,7 +25,7 @@ struct KTButton: View {
                         .tint(foreground)
                 } else if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 12.5, weight: .regular))
                 }
                 Text(title).font(.jbMono(12.5, weight))
             }
@@ -42,7 +42,7 @@ struct KTButton: View {
         .onHover { hovering = $0 }
     }
 
-    private var weight: Font.Weight { kind == .secondary ? .medium : .semibold }
+    private var weight: Font.Weight { kind == .secondary ? .medium : .regular }
 
     private var foreground: Color {
         switch kind {

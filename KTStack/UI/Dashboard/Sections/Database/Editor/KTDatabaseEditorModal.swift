@@ -96,8 +96,8 @@ struct KTDatabaseEditorModal: View {
         switch vm.connection {
         case .connected:
             HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle").font(.system(size: 13, weight: .semibold))
-                Text("Connected").font(.jbMono(13, .semibold))
+                Image(systemName: "checkmark.circle").font(.system(size: 13, weight: .regular))
+                Text("Connected").font(.jbMono(13, .regular))
             }
             .foregroundStyle(KTColor.online)
         case .connecting:

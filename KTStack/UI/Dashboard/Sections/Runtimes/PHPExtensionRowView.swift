@@ -50,7 +50,7 @@ struct PHPExtensionRowView: View {
 
     private var typeTag: some View {
         Text(ext.type.rawValue)
-            .font(.jbMono(9, .semibold))
+            .font(.jbMono(9, .regular))
             .padding(.horizontal, 6).padding(.vertical, 1)
             .background(Capsule().fill(Color.secondary.opacity(0.15)))
             .foregroundStyle(.secondary)

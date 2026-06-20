@@ -13,7 +13,7 @@ struct KTSiteActionsMenu: View {
     var body: some View {
         Button { open.toggle() } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(KTColor.muted)
                 .frame(width: 32, height: 30)
                 .contentShape(Rectangle())

@@ -11,7 +11,7 @@ struct KTSitesDNSFooter: View {
                 Image(systemName: "checkmark.shield").font(.system(size: 14, weight: .medium))
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.jbMono(13, .semibold)).foregroundStyle(KTColor.ink)
+                Text(title).font(.jbMono(13, .regular)).foregroundStyle(KTColor.ink)
                 Text(subtitle).font(.jbMono(12)).foregroundStyle(KTColor.muted)
             }
             Spacer()

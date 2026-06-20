@@ -12,7 +12,7 @@ struct ServiceErrorBanner: View {
         HStack(alignment: .top, spacing: KDSpacing.space2) {
             Image(systemName: status.symbolName)
                 .foregroundStyle(status.color)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15, weight: .regular))
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(KDFont.body).fontWeight(.medium)

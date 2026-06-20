@@ -45,7 +45,7 @@ struct KTConfirmModal: View {
                 }
                 .buttonStyle(.plain)
                 Button(action: onConfirm) {
-                    Text(okLabel).font(.jbMono(14, .semibold)).foregroundStyle(.white)
+                    Text(okLabel).font(.jbMono(14, .regular)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 11)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(danger ? AnyShapeStyle(KTColor.danger) : AnyShapeStyle(KTColor.accentGradient)))

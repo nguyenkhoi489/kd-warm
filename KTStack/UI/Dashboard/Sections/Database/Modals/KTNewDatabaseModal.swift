@@ -40,7 +40,7 @@ struct KTNewDatabaseModal: View {
     }
 
     private func fieldLabel(_ text: String) -> some View {
-        Text(text).font(.jbMono(12.5, .semibold)).foregroundStyle(KTColor.ink2)
+        Text(text).font(.jbMono(12.5, .regular)).foregroundStyle(KTColor.ink2)
             .padding(.bottom, 7)
     }
 
@@ -58,7 +58,7 @@ struct KTNewDatabaseModal: View {
             .keyboardShortcut(.cancelAction)
             Button(action: create) {
                 Text(submitting ? "Creating…" : "Create")
-                    .font(.jbMono(14, .semibold)).foregroundStyle(.white)
+                    .font(.jbMono(14, .regular)).foregroundStyle(.white)
                     .padding(.horizontal, 22).padding(.vertical, 10)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(KTColor.accentGradient))
                     .contentShape(Rectangle())

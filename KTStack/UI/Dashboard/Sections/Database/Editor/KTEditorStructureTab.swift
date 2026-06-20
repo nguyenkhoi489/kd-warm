@@ -36,7 +36,7 @@ struct KTEditorStructureTab: View {
         HStack(spacing: 0) {
             ForEach(Array(columns.enumerated()), id: \.offset) { index, title in
                 Text(title)
-                    .font(.jbMono(12.5, .semibold))
+                    .font(.jbMono(12.5, .regular))
                     .foregroundStyle(KTColor.ink3)
                     .padding(.horizontal, 16).padding(.vertical, 9)
                     .frame(width: widths[index], alignment: .leading)
@@ -50,7 +50,7 @@ struct KTEditorStructureTab: View {
     private func rows(_ widths: [CGFloat]) -> some View {
         ForEach(vm.currentColumns) { column in
             HStack(spacing: 0) {
-                cell(column.name, width: widths[0], font: .jbMono(13, .semibold), color: KTColor.ink)
+                cell(column.name, width: widths[0], font: .jbMono(13, .regular), color: KTColor.ink)
                 cell(column.dataType, width: widths[1], font: .jbMono(13), color: Color(hex: 0x8B5CF6))
                 cell(column.isNullable ? "YES" : "NO", width: widths[2], font: .jbMono(13), color: KTColor.ink3)
                 keyCell(column, width: widths[3])

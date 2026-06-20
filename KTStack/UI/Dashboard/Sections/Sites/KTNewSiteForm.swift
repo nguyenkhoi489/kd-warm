@@ -120,7 +120,7 @@ struct KTNewSiteForm: View {
                 Text("Resolves at ")
                     .font(.jbMono(12.5)).foregroundColor(KTColor.muted)
                 + Text(domain.isEmpty ? "" : domain)
-                    .font(.jbMono(12.5, .semibold)).foregroundColor(KTColor.accent)
+                    .font(.jbMono(12.5, .regular)).foregroundColor(KTColor.accent)
                 Spacer()
                 KTButton(title: "Cancel", kind: .secondary) { onClose() }
                 KTButton(title: "Create Site", systemImage: "plus", kind: .primary) { create() }
@@ -146,7 +146,7 @@ struct KTNewSiteForm: View {
 
     private func row<V: View>(_ label: String, topAligned: Bool = false, @ViewBuilder content: () -> V) -> some View {
         HStack(alignment: topAligned ? .top : .center, spacing: 16) {
-            Text(label).font(.jbMono(14.5, .semibold)).foregroundStyle(KTColor.ink)
+            Text(label).font(.jbMono(14.5, .regular)).foregroundStyle(KTColor.ink)
                 .frame(width: 138, alignment: .leading)
                 .padding(.top, topAligned ? 10 : 0)
             content()
@@ -205,7 +205,7 @@ struct KTNewSiteForm: View {
     private func advancedToggle(_ title: String, _ subtitle: String, _ binding: Binding<Bool>) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.jbMono(14, .semibold)).foregroundStyle(KTColor.ink)
+                Text(title).font(.jbMono(14, .regular)).foregroundStyle(KTColor.ink)
                 Text(subtitle).font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
             }
             Spacer()

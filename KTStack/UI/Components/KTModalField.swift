@@ -42,7 +42,7 @@ struct KTModalLabeledRow<Content: View>: View {
     var body: some View {
         HStack(spacing: 14) {
             Text(label)
-                .font(.jbMono(13.5, .semibold))
+                .font(.jbMono(13.5, .regular))
                 .foregroundStyle(KTColor.ink)
                 .frame(width: labelWidth, alignment: .leading)
             content()

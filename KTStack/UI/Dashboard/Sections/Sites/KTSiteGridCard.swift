@@ -16,8 +16,6 @@ struct KTSiteGridCard: View {
     let onRemove: () -> Void
     var onError: (String) -> Void = { _ in }
 
-    @State private var hovering = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
@@ -55,9 +53,12 @@ struct KTSiteGridCard: View {
             .padding(.top, 14)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: KTRadius.cardLarge, style: .continuous).fill(.white))
-        .overlay(RoundedRectangle(cornerRadius: KTRadius.cardLarge, style: .continuous).strokeBorder(KTColor.sep, lineWidth: 0.5))
-        .shadow(color: hovering ? .black.opacity(0.16) : .clear, radius: 9, y: 4)
-        .onHover { hovering = $0 }
+        .background(
+            RoundedRectangle(cornerRadius: KTRadius.cardLarge, style: .continuous)
+                .fill(.white)
+                .overlay(RoundedRectangle(cornerRadius: KTRadius.cardLarge, style: .continuous)
+                    .strokeBorder(KTColor.sep, lineWidth: 1))
+        )
+        .compositingGroup()
     }
 }

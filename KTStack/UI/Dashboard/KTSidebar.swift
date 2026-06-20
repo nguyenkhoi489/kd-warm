@@ -22,7 +22,7 @@ struct KTSidebar: View {
         .padding(.horizontal, 14)
         .frame(width: KTMetric.sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(KTVisualEffectView(material: .sidebar, blending: .behindWindow).ignoresSafeArea())
+        .background(KTColor.sidebarBackground.ignoresSafeArea())
         .overlay(alignment: .trailing) {
             Rectangle().fill(KTColor.hairline).frame(width: KTMetric.hairline)
         }

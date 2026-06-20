@@ -44,7 +44,7 @@ struct KTEditorResultGrid: View {
         HStack(spacing: 0) {
             ForEach(Array(result.columns.enumerated()), id: \.offset) { index, column in
                 Text(column.name)
-                    .font(.jbMono(12.5, .semibold))
+                    .font(.jbMono(12.5, .regular))
                     .foregroundStyle(KTColor.ink3)
                     .lineLimit(1)
                     .padding(.horizontal, 14).padding(.vertical, 9)

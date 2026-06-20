@@ -20,7 +20,7 @@ struct MailSectionView: View {
         HStack(spacing: 12) {
             Text("Mail").font(KTType.screenTitle).tracking(KTType.screenTitleTracking).foregroundStyle(KTColor.ink)
             Text("Mailpit · :8025")
-                .font(.jbMono(12.5, .semibold)).foregroundStyle(Color(hex: 0x8E8E93))
+                .font(.jbMono(12.5, .regular)).foregroundStyle(Color(hex: 0x8E8E93))
                 .padding(.horizontal, 10).padding(.vertical, 3)
                 .background(Capsule().fill(KTColor.pillBg))
             Spacer()
@@ -79,7 +79,7 @@ struct MailSectionView: View {
             } else {
                 VStack(spacing: 6) {
                     Image(systemName: "envelope.open").font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-                    Text("No message selected").font(.jbMono(16, .semibold)).foregroundStyle(KTColor.ink3)
+                    Text("No message selected").font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
                     Text("Pick a message from the list to read it.").font(.jbMono(13)).foregroundStyle(KTColor.muted)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -109,7 +109,7 @@ struct MailListRow: View {
                 MailAvatar(name: senderName)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
-                        Text(senderName).font(.jbMono(13.5, .semibold))
+                        Text(senderName).font(.jbMono(13.5, .regular))
                             .foregroundStyle(KTColor.ink).lineLimit(1)
                         Spacer(minLength: 4)
                         if let date = summary.date {

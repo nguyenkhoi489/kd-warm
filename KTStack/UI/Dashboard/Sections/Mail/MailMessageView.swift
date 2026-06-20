@@ -34,7 +34,7 @@ struct MailMessageView: View {
             HStack(spacing: 8) {
                 MailAvatar(name: senderName)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(senderName).font(.jbMono(13, .semibold)).foregroundStyle(KTColor.ink)
+                    Text(senderName).font(.jbMono(13, .regular)).foregroundStyle(KTColor.ink)
                     Text(detail.From?.Address ?? "").font(.jbMono(12)).foregroundStyle(KTColor.muted)
                 }
                 Spacer()
@@ -92,7 +92,7 @@ struct MailMessageView: View {
 
     private func attachmentsList(_ attachments: [MailAttachment]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Attachments (\(attachments.count))").font(.jbMono(12, .semibold)).foregroundStyle(KTColor.ink3)
+            Text("Attachments (\(attachments.count))").font(.jbMono(12, .regular)).foregroundStyle(KTColor.ink3)
             ForEach(attachments) { a in
                 HStack(spacing: 8) {
                     Image(systemName: "paperclip").font(.system(size: 11)).foregroundStyle(KTColor.muted)

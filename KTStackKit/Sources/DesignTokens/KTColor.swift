@@ -30,7 +30,9 @@ public enum KTColor {
 
     public static let sep = Color(hex: 0xECECF1)
     public static let sepFaint = Color(hex: 0xF2F2F5)
-    public static let hairline = Color(hex: 0xE3E3E9)
+    public static let hairline = Color(hex: 0xF9F9FC)
+    public static let sidebarBackground = Color(hex: 0xF9F9FC)
+    
 
     public static let fieldBg = Color(hex: 0xF4F4F7)
     public static let fieldBorder = Color(hex: 0xEAEAEF)

@@ -65,9 +65,9 @@ struct KTDropdownChevronLabel: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(text)
-                .font(.jbMono(13, mono ? .semibold : .medium))
+                .font(.jbMono(13, mono ? .regular : .medium))
                 .foregroundStyle(mono ? KTColor.ink2 : KTColor.ink)
-            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(KTColor.muted)
+            Image(systemName: "chevron.down").font(.system(size: 10, weight: .regular)).foregroundStyle(KTColor.muted)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTColor.fieldBg))

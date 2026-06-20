@@ -28,7 +28,7 @@ struct DumpsPanelView: View {
         HStack(spacing: 12) {
             Text("Dumps").font(KTType.screenTitle).tracking(KTType.screenTitleTracking).foregroundStyle(KTColor.ink)
             Text("\(model.events.count) captured")
-                .font(.jbMono(12.5, .semibold)).foregroundStyle(Color(hex: 0x8E8E93))
+                .font(.jbMono(12.5, .regular)).foregroundStyle(Color(hex: 0x8E8E93))
                 .padding(.horizontal, 10).padding(.vertical, 3)
                 .background(Capsule().fill(KTColor.pillBg))
             Spacer()
@@ -56,7 +56,7 @@ struct DumpsPanelView: View {
                     Circle().fill(model.enabled ? KTColor.runDot : KTColor.stopDot).frame(width: 7, height: 7)
                 }
                 Text(model.enabled ? "Capturing" : "Capture off")
-                    .font(.jbMono(13, .semibold))
+                    .font(.jbMono(13, .regular))
                     .foregroundStyle(model.enabled ? KTColor.online : KTColor.ink2)
             }
             .padding(.horizontal, 14).padding(.vertical, 8)
@@ -118,7 +118,7 @@ struct DumpsPanelView: View {
             HStack(spacing: 10) {
                 typeChip(event.root)
                 Text(event.sourceDisplay)
-                    .font(.jbMono(13, .semibold)).foregroundStyle(KTColor.ink2)
+                    .font(.jbMono(13, .regular)).foregroundStyle(KTColor.ink2)
                 Spacer()
                 Text(Self.timeFormatter.string(from: event.timestamp))
                     .font(.jbMono(12)).foregroundStyle(KTColor.muted)
@@ -157,7 +157,7 @@ struct DumpsPanelView: View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 42, weight: .light))
                 .foregroundStyle(danger ? KTColor.danger : KTColor.faint)
-            Text(title).font(.jbMono(16, .semibold)).foregroundStyle(KTColor.ink3)
+            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
             Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
         }
         .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)

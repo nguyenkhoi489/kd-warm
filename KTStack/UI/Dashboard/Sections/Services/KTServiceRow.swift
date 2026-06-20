@@ -95,7 +95,7 @@ struct KTServiceRow: View {
                 Button("Reset Data…", systemImage: "trash", role: .destructive) { showResetConfirm = true }
             }
         } label: {
-            Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold))
+            Image(systemName: "ellipsis").font(.system(size: 15, weight: .regular))
                 .foregroundStyle(KTColor.muted).frame(width: 28, height: 30).contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 28)

@@ -29,7 +29,7 @@ struct KTSettingsRow<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.jbMono(14, .semibold)).foregroundStyle(KTColor.ink)
+                Text(title).font(.jbMono(14, .regular)).foregroundStyle(KTColor.ink)
                 if let subtitle {
                     Text(subtitle).font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
                 }
@@ -51,9 +51,9 @@ struct KTSettingsMenuValue: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(text)
-                .font(.jbMono(13, mono ? .semibold : .medium))
+                .font(.jbMono(13, mono ? .regular : .medium))
                 .foregroundStyle(mono ? KTColor.ink2 : KTColor.ink)
-            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(KTColor.muted)
+            Image(systemName: "chevron.down").font(.system(size: 10, weight: .regular)).foregroundStyle(KTColor.muted)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTColor.fieldBg))
@@ -67,7 +67,7 @@ struct KTSettingsValuePill: View {
 
     var body: some View {
         Text(text)
-            .font(.jbMono(13, .semibold))
+            .font(.jbMono(13, .regular))
             .foregroundStyle(KTColor.ink2)
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTColor.fieldBg))

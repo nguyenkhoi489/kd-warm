@@ -51,7 +51,6 @@ struct KTEditorERTab: View {
                 .offset(x: pan.width + gesturePan.width, y: pan.height + gesturePan.height)
             }
             .contentShape(Rectangle())
-            .clipped()
             .gesture(panGesture)
             .gesture(zoomGesture)
             .overlay(alignment: .bottomTrailing) { zoomControls }
@@ -138,7 +137,7 @@ struct KTEditorERTab: View {
         VStack(spacing: 6) {
             Image(systemName: "rectangle.connected.to.line.below")
                 .font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text("No tables").font(.jbMono(16, .semibold)).foregroundStyle(KTColor.ink3)
+            Text("No tables").font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
             Text("Select a database with tables to see its ER diagram.")
                 .font(.jbMono(13)).foregroundStyle(KTColor.muted)
         }
@@ -185,7 +184,7 @@ struct KTEditorERTab: View {
 
     private func zoomButton(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+            Image(systemName: symbol).font(.system(size: 12, weight: .regular))
                 .foregroundStyle(KTColor.ink3).frame(width: 26, height: 26).contentShape(Rectangle())
         }
         .buttonStyle(.plain)

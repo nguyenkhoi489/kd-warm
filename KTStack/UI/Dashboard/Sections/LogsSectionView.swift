@@ -68,7 +68,7 @@ struct LogsSectionView: View {
             HStack(spacing: 7) {
                 if tail.isLive {
                     Circle().fill(KTColor.runDot).frame(width: 7, height: 7)
-                    Text("Following").font(.jbMono(13, .semibold)).foregroundStyle(KTColor.online)
+                    Text("Following").font(.jbMono(13, .regular)).foregroundStyle(KTColor.online)
                 } else {
                     Image(systemName: "pause.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(KTColor.ink3)
                     Text("Paused").font(.jbMono(13, .medium)).foregroundStyle(KTColor.ink2)
@@ -144,7 +144,7 @@ struct LogsSectionView: View {
     private func emptyPanel(_ title: String, _ message: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: "text.alignleft").font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(title).font(.jbMono(16, .semibold)).foregroundStyle(KTColor.ink3)
+            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
             Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

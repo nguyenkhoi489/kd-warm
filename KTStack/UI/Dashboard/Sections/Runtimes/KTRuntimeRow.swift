@@ -52,7 +52,7 @@ struct KTRuntimeRow: View {
             switch state {
             case .active:
                 Text("Default")
-                    .font(.jbMono(13, .semibold)).foregroundStyle(KTColor.online)
+                    .font(.jbMono(13, .regular)).foregroundStyle(KTColor.online)
                     .padding(.vertical, 8).padding(.horizontal, 16)
                     .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTColor.onlineBg))
                 phpMenu
@@ -74,7 +74,7 @@ struct KTRuntimeRow: View {
                 Divider()
                 Button("Uninstall…", systemImage: "trash", role: .destructive, action: onUninstall)
             } label: {
-                Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold))
+                Image(systemName: "ellipsis").font(.system(size: 15, weight: .regular))
                     .foregroundStyle(KTColor.muted).frame(width: 28, height: 30).contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 28)

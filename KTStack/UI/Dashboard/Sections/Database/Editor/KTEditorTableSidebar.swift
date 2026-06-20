@@ -80,7 +80,7 @@ struct KTEditorTableSidebar: View {
                     .font(.system(size: 13))
                     .foregroundStyle(active ? KTColor.accent : KTColor.muted)
                 Text(table.name)
-                    .font(.jbMono(13, active ? .semibold : .regular))
+                    .font(.jbMono(13, active ? .regular : .regular))
                     .foregroundStyle(active ? KTColor.accent : KTColor.ink2)
                     .lineLimit(1)
                 Spacer(minLength: 0)

@@ -41,7 +41,7 @@ struct AboutSettingsView: View {
 
     private var checkButton: some View {
         Button { updater.checkForUpdates() } label: {
-            Text("Check for Updates").font(.jbMono(14, .semibold)).foregroundStyle(.white)
+            Text("Check for Updates").font(.jbMono(14, .regular)).foregroundStyle(.white)
                 .padding(.horizontal, 22).padding(.vertical, 11)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(KTColor.accentGradient))
                 .contentShape(Rectangle())

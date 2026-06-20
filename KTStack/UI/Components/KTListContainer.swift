@@ -8,6 +8,8 @@ struct KTListContainer<Content: View>: View {
         content()
             .background(RoundedRectangle(cornerRadius: KTRadius.card, style: .continuous).fill(.white))
             .clipShape(RoundedRectangle(cornerRadius: KTRadius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: KTRadius.card, style: .continuous).strokeBorder(KTColor.sep, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: KTRadius.card, style: .continuous).strokeBorder(KTColor.sep, lineWidth: 1))
+            .compositingGroup()
+            .padding(1)
     }
 }

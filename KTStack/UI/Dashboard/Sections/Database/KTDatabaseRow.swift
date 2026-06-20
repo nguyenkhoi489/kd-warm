@@ -29,7 +29,7 @@ struct KTDatabaseRow: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 9) {
-                    Text(name).font(.jbMono(14.5, .semibold)).foregroundStyle(KTColor.ink)
+                    Text(name).font(.jbMono(14.5, .regular)).foregroundStyle(KTColor.ink)
                     KTBadge(text: KTDatabaseVisuals.engineLabel(kind), tint: KTEngineTint.of(kind.rawValue), radius: 6)
                 }
                 HStack(spacing: 7) {
@@ -46,7 +46,7 @@ struct KTDatabaseRow: View {
                 Button("Restore from Backups…", systemImage: "clock.arrow.circlepath", action: onRestore)
                 Button("Export SQL…", systemImage: "square.and.arrow.up", action: onExport)
             } label: {
-                Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold))
+                Image(systemName: "ellipsis").font(.system(size: 15, weight: .regular))
                     .foregroundStyle(KTColor.muted).frame(width: 32, height: 30).contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 32)

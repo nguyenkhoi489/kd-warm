@@ -138,7 +138,7 @@ struct KTDatabaseScreen: View {
     private var connectionGate: some View {
         VStack(spacing: 10) {
             Image(systemName: "cylinder.split.1x2").font(.system(size: 46, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(gateTitle).font(.jbMono(17, .semibold)).foregroundStyle(KTColor.ink3)
+            Text(gateTitle).font(.jbMono(17, .regular)).foregroundStyle(KTColor.ink3)
             Text(gateMessage).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
             KTButton(title: "Connect", systemImage: "link", kind: .primary) { overlay.connectPresented = true }.padding(.top, 4)
         }
@@ -158,7 +158,7 @@ struct KTDatabaseScreen: View {
     private func emptyState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 46, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(title).font(.jbMono(17, .semibold)).foregroundStyle(KTColor.ink3)
+            Text(title).font(.jbMono(17, .regular)).foregroundStyle(KTColor.ink3)
             Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

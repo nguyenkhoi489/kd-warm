@@ -18,7 +18,7 @@ struct KTBackupRow: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 9) {
-                    Text(title).font(.jbMono(14, .semibold)).foregroundStyle(KTColor.ink)
+                    Text(title).font(.jbMono(14, .regular)).foregroundStyle(KTColor.ink)
                     KTBadge(text: isFull ? "Full" : "Single",
                             tint: isFull ? KTTint(fg: KTColor.accent, bg: Color(hex: 0xEAF1FF)) : KTTint(fg: KTColor.ink3, bg: KTColor.pillBg),
                             radius: 6)

@@ -27,7 +27,7 @@ struct KTSitesHeader: View {
             Button(action: onNewSite) {
                 HStack(spacing: 7) {
                     Image(systemName: "plus").font(.system(size: 13, weight: .bold))
-                    Text("New Site").font(.jbMono(13, .semibold))
+                    Text("New Site").font(.jbMono(13, .regular))
                 }
                 .foregroundStyle(.white)
                 .padding(.vertical, 9)

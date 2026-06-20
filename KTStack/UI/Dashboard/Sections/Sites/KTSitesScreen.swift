@@ -133,7 +133,7 @@ private struct KTSitesContent: View {
         } else if filteredSites.isEmpty {
             emptyState(title: "No matching sites", message: "No site matches “\(searchText)”.")
         } else if gridView {
-            ScrollView { grid.padding(.bottom, 4) }
+            ScrollView { grid.padding(.top, 2).padding(.horizontal, 2).padding(.bottom, 4) }
         } else {
             KTListContainer { ScrollView { list } }
         }
@@ -180,7 +180,7 @@ private struct KTSitesContent: View {
     private func emptyState(title: String, message: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: "globe").font(.system(size: 46, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(title).font(.jbMono(17, .semibold)).foregroundStyle(KTColor.ink3)
+            Text(title).font(.jbMono(17, .regular)).foregroundStyle(KTColor.ink3)
             Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

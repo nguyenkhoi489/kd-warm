@@ -6,8 +6,7 @@ public extension Font {
         switch weight {
         case .bold, .heavy, .black: face = "JetBrainsMono-Bold"
         case .semibold: face = "JetBrainsMono-SemiBold"
-        case .medium: face = "JetBrainsMono-Medium"
-        default: face = "JetBrainsMono-Regular"
+        default: face = "JetBrainsMono-Medium"
         }
         return .custom(face, size: size)
     }
@@ -16,9 +15,9 @@ public extension Font {
 public enum KTType {
     public static let screenTitle = Font.jbMono(20, .bold)
     public static let modalTitle = Font.jbMono(17, .bold)
-    public static let cardName = Font.jbMono(14, .semibold)
-    public static let rowName = Font.jbMono(13.5, .semibold)
-    public static let label = Font.jbMono(13, .semibold)
+    public static let cardName = Font.jbMono(14, .regular)
+    public static let rowName = Font.jbMono(13.5, .regular)
+    public static let label = Font.jbMono(13, .regular)
     public static let body = Font.jbMono(13)
     public static let control = Font.jbMono(12.5, .medium)
     public static let sub = Font.jbMono(12)
