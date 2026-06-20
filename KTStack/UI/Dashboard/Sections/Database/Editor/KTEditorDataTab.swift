@@ -4,10 +4,11 @@ import KTStackKit
 struct KTEditorDataTab: View {
     @EnvironmentObject private var vm: DatabaseViewModel
     @Binding var selectedRow: Int?
-    @Binding var editor: TableDataView.EditorMode?
+    @Binding var editor: RowEditorMode?
     @Binding var pendingDelete: Int?
 
     @State private var showFilterPopover = false
+    @State private var showDetailPanel = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -111,26 +112,37 @@ struct KTEditorDataTab: View {
         if table == nil {
             emptyState
         } else if let result = vm.result, vm.isTableBrowse {
-            KTDataGrid(result: result,
-                       selectedRow: $selectedRow,
-                       onActivate: { if vm.canEditRows { editor = .edit($0) } },
-                       onNearEnd: { Task { await vm.loadMoreRows() } },
-                       sort: vm.activeSort,
-                       onSortColumn: { column in Task { await vm.toggleSort(column: column) } },
-                       editableColumns: editableColumnNames(result),
-                       onCommitEdit: { row, column, value in
-                           guard column >= 0, column < result.columns.count else { return }
-                           let name = result.columns[column].name
-                           Task { await vm.updateCell(rowIndex: row, column: name, stringValue: value) }
-                       },
-                       foreignKeyColumns: foreignKeyColumnNames,
-                       onNavigateFK: { row, column in
-                           guard row < result.rows.count, column >= 0, column < result.columns.count else { return }
-                           let name = result.columns[column].name
-                           let value = result.rows[row][column]
-                           Task { await vm.navigateForeignKey(fromColumn: name, value: value) }
-                       })
-            footer(result)
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    KTDataGrid(result: result,
+                               selectedRow: $selectedRow,
+                               onActivate: { if vm.canEditRows { editor = .edit($0) } },
+                               onNearEnd: { Task { await vm.loadMoreRows() } },
+                               sort: vm.activeSort,
+                               onSortColumn: { column in Task { await vm.toggleSort(column: column) } },
+                               editableColumns: editableColumnNames(result),
+                               onCommitEdit: { row, column, value in
+                                   guard column >= 0, column < result.columns.count else { return }
+                                   let name = result.columns[column].name
+                                   Task { await vm.updateCell(rowIndex: row, column: name, stringValue: value) }
+                               },
+                               foreignKeyColumns: foreignKeyColumnNames,
+                               onNavigateFK: { row, column in
+                                   guard row < result.rows.count, column >= 0, column < result.columns.count else { return }
+                                   let name = result.columns[column].name
+                                   let value = result.rows[row][column]
+                                   Task { await vm.navigateForeignKey(fromColumn: name, value: value) }
+                               })
+                    footer(result)
+                }
+                if showDetailPanel {
+                    Rectangle().fill(KTColor.sep).frame(width: 0.5)
+                    KTRowDetailPanel(
+                        columns: result.columns,
+                        row: selectedRow.flatMap { $0 < result.rows.count ? result.rows[$0] : nil },
+                        onClose: { showDetailPanel = false })
+                }
+            }
         } else if let error = vm.resultError {
             messageState(icon: "exclamationmark.triangle", title: "Couldn’t load rows", message: error)
         } else {
@@ -157,6 +169,13 @@ struct KTEditorDataTab: View {
                         .font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
                 }
                 Spacer()
+                if vm.isTableBrowse, !vm.canEditRows, let reason = vm.editDisabledReason {
+                    Text(reason).font(.jbMono(11.5)).foregroundStyle(KTColor.muted).lineLimit(1)
+                }
+                if vm.isTableBrowse {
+                    CSVExportButton(defaultName: table.name)
+                }
+                detailToggle
                 if vm.canEditRows {
                     rowActions
                 }
@@ -167,6 +186,17 @@ struct KTEditorDataTab: View {
         }
         .padding(.horizontal, 18).padding(.vertical, 11)
         .frame(minHeight: 48)
+    }
+
+    private var detailToggle: some View {
+        Button { showDetailPanel.toggle() } label: {
+            Image(systemName: "sidebar.trailing")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(showDetailPanel ? KTColor.accent : Color(hex: 0x86868F))
+                .frame(width: 28, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var rowActions: some View {
