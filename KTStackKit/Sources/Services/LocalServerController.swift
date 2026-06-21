@@ -377,8 +377,7 @@ public final class LocalServerController: ObservableObject {
         let newNginx: ServiceStatus = nginxRunning ? .running : .stopped
         let active = pools.activeVersions
         let allUp = !active.isEmpty && active.allSatisfy { pools.isRunning(version: $0) }
-        let anyPHP = registry.sites.contains { $0.type == .php }
-        let newPhp: ServiceStatus = allUp ? .running : (anyPHP && nginxRunning ? .error : .stopped)
+        let newPhp: ServiceStatus = allUp ? .running : .stopped
         if newNginx != nginxStatus { nginxStatus = newNginx }
         if newPhp != phpStatus { phpStatus = newPhp }
     }
