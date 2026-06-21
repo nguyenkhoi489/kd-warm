@@ -5,11 +5,20 @@ struct ShellShimWriter {
 
     var helperPath: String { paths.shimBinDir.appendingPathComponent("ktstack-resolve").path }
 
-    func directBinaryShim(lang: String) -> String {
+    private let phpConfigIsolation = """
+        __ktphp_dir="${target%/bin/*}"
+        __ktphp_ver="${__ktphp_dir##*/}"
+        __ktphp_root="${__ktphp_dir%/runtimes/php/*}"
+        [ -d "$__ktphp_root/config/php/$__ktphp_ver" ] && export PHPRC="$__ktphp_root/config/php/$__ktphp_ver"
+        [ -d "$__ktphp_dir/conf.d" ] && export PHP_INI_SCAN_DIR="$__ktphp_dir/conf.d"
         """
+
+    func directBinaryShim(lang: String) -> String {
+        let isolation = lang == "php" ? "\n" + phpConfigIsolation : ""
+        return """
         #!/bin/sh
         export PATH=/usr/bin:/bin
-        target="$("\(helperPath)" \(lang) "$PWD")" || { echo "ktstack: \(lang) is not installed — open KTStack to add a runtime" >&2; exit 127; }
+        target="$("\(helperPath)" \(lang) "$PWD")" || { echo "ktstack: \(lang) is not installed — open KTStack to add a runtime" >&2; exit 127; }\(isolation)
         exec "$target" "$@"
         """
     }
@@ -21,6 +30,7 @@ struct ShellShimWriter {
         phar="\(phar)"
         [ -f "$phar" ] || { echo "ktstack: \(name) is not provisioned — open KTStack to install it" >&2; exit 127; }
         target="$("\(helperPath)" php "$PWD")" || { echo "ktstack: php is not installed" >&2; exit 127; }
+        \(phpConfigIsolation)
         exec "$target" "$phar" "$@"
         """
     }

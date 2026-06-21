@@ -98,6 +98,18 @@ final class ShellPathManagerTests: XCTestCase {
         XCTAssertFalse(manager.status().enabled)
     }
 
+    func testPHPShimsIsolateConfigButNodeDoesNot() throws {
+        let paths = AppSupportPaths(root: tmp.appendingPathComponent("support"))
+        let shims = ShellShimWriter(paths: paths).shims
+        for name in ["php", "composer", "wp"] {
+            let body = try XCTUnwrap(shims[name])
+            XCTAssertTrue(body.contains("export PHPRC="), "\(name) must isolate PHPRC")
+            XCTAssertTrue(body.contains("export PHP_INI_SCAN_DIR="), "\(name) must isolate PHP_INI_SCAN_DIR")
+        }
+        let node = try XCTUnwrap(shims["node"])
+        XCTAssertFalse(node.contains("PHPRC"), "node shim must not touch PHP config")
+    }
+
     func testComposerProvisionerRejectsUnverifiedCachedPhar() throws {
         let paths = AppSupportPaths(root: tmp.appendingPathComponent("support"))
         try fm.createDirectory(at: paths.composerPhar.deletingLastPathComponent(),
