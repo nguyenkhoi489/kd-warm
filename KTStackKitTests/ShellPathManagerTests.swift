@@ -62,7 +62,8 @@ final class ShellPathManagerTests: XCTestCase {
         }
         let zshrc = try String(contentsOf: home.appendingPathComponent(".zshrc"), encoding: .utf8)
         XCTAssertTrue(zshrc.contains(ShellRCPatcher.startPrefix))
-        XCTAssertTrue(zshrc.contains(paths.shimBinDir.path))
+        XCTAssertTrue(zshrc.contains("export PATH=\"\(paths.shimBinDir.path):$PATH\""),
+                      "shim dir must be prepended so KTStack runtimes win over system PATH")
 
         let status = manager.status()
         XCTAssertTrue(status.enabled)
@@ -96,6 +97,18 @@ final class ShellPathManagerTests: XCTestCase {
         XCTAssertFalseContains(zshrc, ShellRCPatcher.startPrefix)
         XCTAssertFalse(fm.fileExists(atPath: paths.shimBinDir.path))
         XCTAssertFalse(manager.status().enabled)
+    }
+
+    func testPHPShimsIsolateConfigButNodeDoesNot() throws {
+        let paths = AppSupportPaths(root: tmp.appendingPathComponent("support"))
+        let shims = ShellShimWriter(paths: paths).shims
+        for name in ["php", "composer", "wp"] {
+            let body = try XCTUnwrap(shims[name])
+            XCTAssertTrue(body.contains("export PHPRC="), "\(name) must isolate PHPRC")
+            XCTAssertTrue(body.contains("export PHP_INI_SCAN_DIR="), "\(name) must isolate PHP_INI_SCAN_DIR")
+        }
+        let node = try XCTUnwrap(shims["node"])
+        XCTAssertFalse(node.contains("PHPRC"), "node shim must not touch PHP config")
     }
 
     func testComposerProvisionerRejectsUnverifiedCachedPhar() throws {
