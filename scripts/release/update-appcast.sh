@@ -20,11 +20,35 @@ PREFIX_ARGS=()
 
 # Prefer this project's resolved Sparkle (so the tool version matches the linked framework); fall
 # back to any. Override with GENERATE_APPCAST=/path to pin explicitly in CI.
-GEN_APPCAST="${GENERATE_APPCAST:-$(find "$DD"/KTStack-* -path "*sparkle*/bin/generate_appcast" -type f 2>/dev/null | head -1)}"
-[[ -x "${GEN_APPCAST:-}" ]] || GEN_APPCAST="$(find "$DD" -path "*sparkle*/bin/generate_appcast" -type f 2>/dev/null | head -1)"
-[[ -x "$GEN_APPCAST" ]] || { echo "generate_appcast not found — build the app once so Sparkle resolves (or set DERIVED_DATA)." >&2; exit 1; }
+GEN_APPCAST="${GENERATE_APPCAST:-}"
+[[ -x "${GEN_APPCAST:-}" ]] || GEN_APPCAST="$(find "$DD" -path "*sparkle*/bin/generate_appcast" -type f 2>/dev/null | head -1 || true)"
+[[ -x "${GEN_APPCAST:-}" ]] || { echo "generate_appcast not found — build the app once so Sparkle resolves (or set DERIVED_DATA)." >&2; exit 1; }
 
-echo "=== generate_appcast over $RELEASES ==="
-"$GEN_APPCAST" "${PREFIX_ARGS[@]}" "$RELEASES"
-echo "appcast: $RELEASES/appcast.xml"
-echo "Next: upload appcast.xml AND the .dmg to the matching GitHub Release (gh release upload <tag> …)."
+shopt -s nullglob
+DMGS=( "$RELEASES"/*.dmg "$RELEASES"/*.zip )
+shopt -u nullglob
+
+if [[ ${#DMGS[@]} -le 1 ]]; then
+    echo "=== generate_appcast over $RELEASES ==="
+    "$GEN_APPCAST" "${PREFIX_ARGS[@]}" "$RELEASES"
+else
+    echo "=== per-arch appcast: generating ${#DMGS[@]} archives separately then merging ==="
+    ITEMS=""
+    for d in "${DMGS[@]}"; do
+        sub="$(mktemp -d)"; cp "$d" "$sub/"
+        "$GEN_APPCAST" "${PREFIX_ARGS[@]}" "$sub" >/dev/null
+        ITEMS+="$(sed -n '/<item>/,/<\/item>/p' "$sub/appcast.xml")"$'\n'
+        rm -rf "$sub"
+    done
+    {
+        echo '<?xml version="1.0" standalone="yes"?>'
+        echo '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">'
+        echo '    <channel>'
+        echo '        <title>KTStack</title>'
+        printf '%s' "$ITEMS"
+        echo '    </channel>'
+        echo '</rss>'
+    } > "$RELEASES/appcast.xml"
+fi
+echo "appcast: $RELEASES/appcast.xml ($(grep -cE '<item>' "$RELEASES/appcast.xml") item(s))"
+echo "Next: upload appcast.xml AND every .dmg to the matching GitHub Release (gh release upload <tag> …)."
