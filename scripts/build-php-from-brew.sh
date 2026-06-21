@@ -13,9 +13,24 @@ else
 fi
 
 ARCH="${ARCH:-$(uname -m)}"
+
+if [[ -z "${BREW:-}" ]]; then
+    if [[ "$ARCH" == "x86_64" && "$(uname -m)" == "arm64" ]]; then
+        BREW="arch -x86_64 /usr/local/bin/brew"
+    elif [[ "$ARCH" == "x86_64" ]]; then
+        BREW="/usr/local/bin/brew"
+    else
+        BREW="brew"
+    fi
+fi
+
 ARTIFACTS="${ARTIFACTS:-$ROOT/.build-cache/artifacts}"
 STAGE_ROOT="${STAGE_ROOT:-$ROOT/.build-cache/php-from-brew-$ARCH}"
-LOCKFILE="${LOCKFILE:-$ROOT/scripts/php-bottle-pins.lock}"
+if [[ "$ARCH" == "arm64" ]]; then
+    LOCKFILE="${LOCKFILE:-$ROOT/scripts/php-bottle-pins.lock}"
+else
+    LOCKFILE="${LOCKFILE:-$ROOT/scripts/php-bottle-pins-$ARCH.lock}"
+fi
 UPDATE_LOCK="${UPDATE_LOCK:-0}"
 
 # shellcheck source=scripts/lib-relocatable.sh
@@ -24,24 +39,25 @@ source "$ROOT/scripts/lib-relocatable.sh"
 mkdir -p "$ARTIFACTS"
 
 bottle_tag() {
-    local macos_major
+    local macos_major name
     macos_major="$(sw_vers -productVersion | cut -d. -f1)"
     case "$macos_major" in
-        15) echo "arm64_sequoia" ;;
-        14) echo "arm64_sonoma" ;;
-        13) echo "arm64_ventura" ;;
-        *)  echo "arm64_sequoia" ;;
+        15) name="sequoia" ;;
+        14) name="sonoma" ;;
+        13) name="ventura" ;;
+        *)  name="sequoia" ;;
     esac
+    if [[ "$ARCH" == "arm64" ]]; then echo "arm64_${name}"; else echo "$name"; fi
 }
 
 cellar_version_of() {
-    brew info --json=v2 "shivammathur/php/php@$1" 2>/dev/null \
+    $BREW info --json=v2 "shivammathur/php/php@$1" 2>/dev/null \
         | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["formulae"][0]["versions"]["stable"])'
 }
 
 bottle_sha_of() {
     local ver="$1" tag="$2"
-    brew info --json=v2 "shivammathur/php/php@$ver" 2>/dev/null \
+    $BREW info --json=v2 "shivammathur/php/php@$ver" 2>/dev/null \
         | /usr/bin/python3 -c "import json,sys; f=json.load(sys.stdin)['formulae'][0]; b=f.get('bottle',{}).get('stable',{}).get('files',{}); print(b.get('$tag',{}).get('sha256',''))"
 }
 
@@ -68,11 +84,11 @@ build_one_version() {
     echo ""
     echo "######## PHP ${PHP_VERSION} (${ARCH}, ${TAG}) ########"
 
-    if ! brew list --formula 2>/dev/null | grep -qx "php@${PHP_VERSION}"; then
+    if ! $BREW list --formula 2>/dev/null | grep -qx "php@${PHP_VERSION}"; then
         echo "=== brew install ${FORMULA} ==="
-        if ! brew install "$FORMULA"; then
+        if ! $BREW install "$FORMULA"; then
             echo "=== bottle unavailable — build from source ==="
-            brew install --build-from-source "$FORMULA"
+            $BREW install --build-from-source "$FORMULA"
         fi
     fi
 
@@ -93,7 +109,7 @@ build_one_version() {
         [[ -z "$PIN_CV" ]] && echo "  ! no pin recorded for $PHP_VERSION (run UPDATE_LOCK=1 to record)"
     fi
 
-    local CELLAR; CELLAR="$(brew --prefix "php@${PHP_VERSION}")"
+    local CELLAR; CELLAR="$($BREW --prefix "php@${PHP_VERSION}")"
     [[ -x "$CELLAR/bin/php" ]] || { echo "php binary missing in $CELLAR" >&2; return 1; }
 
     local FPM_SRC=""
