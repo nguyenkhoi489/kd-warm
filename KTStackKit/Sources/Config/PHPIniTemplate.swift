@@ -25,5 +25,8 @@ public enum PHPIniTemplate {
     opcache.enable = 1
     opcache.enable_cli = 0
 
+    ; The signed runtime cannot allocate JIT executable memory under the hardened runtime; disable PCRE JIT.
+    pcre.jit = 0
+
     """
 }
