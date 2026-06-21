@@ -46,7 +46,7 @@ struct SettingsView: View {
                     updatesGroup
                     maintenanceGroup
                 }
-                .frame(maxWidth: 720, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, KTSpacing.screenGutter).padding(.top, 18).padding(.bottom, 24)
             }
         }
