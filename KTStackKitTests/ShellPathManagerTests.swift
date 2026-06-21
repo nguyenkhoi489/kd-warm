@@ -111,6 +111,18 @@ final class ShellPathManagerTests: XCTestCase {
         XCTAssertFalse(node.contains("PHPRC"), "node shim must not touch PHP config")
     }
 
+    func testDirectShimsFallBackToSystemBinaryWhenNoRuntime() throws {
+        let paths = AppSupportPaths(root: tmp.appendingPathComponent("support"))
+        let shims = ShellShimWriter(paths: paths).shims
+        for name in ["node", "php"] {
+            let body = try XCTUnwrap(shims[name])
+            XCTAssertTrue(body.contains("command -v \(name)"),
+                          "\(name) shim must fall back to the system binary when no KTStack runtime resolves")
+            XCTAssertTrue(body.contains("grep -vxF \"\(paths.shimBinDir.path)\""),
+                          "\(name) shim must drop its own shim dir before the system lookup")
+        }
+    }
+
     func testComposerProvisionerRejectsUnverifiedCachedPhar() throws {
         let paths = AppSupportPaths(root: tmp.appendingPathComponent("support"))
         try fm.createDirectory(at: paths.composerPhar.deletingLastPathComponent(),

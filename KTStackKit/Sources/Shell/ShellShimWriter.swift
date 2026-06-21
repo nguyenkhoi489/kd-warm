@@ -5,6 +5,8 @@ struct ShellShimWriter {
 
     var helperPath: String { paths.shimBinDir.appendingPathComponent("ktstack-resolve").path }
 
+    var shimDir: String { paths.shimBinDir.path }
+
     private let phpConfigIsolation = """
         __ktphp_dir="${target%/bin/*}"
         __ktphp_ver="${__ktphp_dir##*/}"
@@ -17,9 +19,16 @@ struct ShellShimWriter {
         let isolation = lang == "php" ? "\n" + phpConfigIsolation : ""
         return """
         #!/bin/sh
-        export PATH=/usr/bin:/bin
-        target="$("\(helperPath)" \(lang) "$PWD")" || { echo "ktstack: \(lang) is not installed — open KTStack to add a runtime" >&2; exit 127; }\(isolation)
-        exec "$target" "$@"
+        if target="$("\(helperPath)" \(lang) "$PWD" 2>/dev/null)"; then
+            export PATH=/usr/bin:/bin\(isolation)
+            exec "$target" "$@"
+        fi
+        system_path="$(printf '%s' "$PATH" | tr ':' '\\n' | grep -vxF "\(shimDir)" | paste -sd ':' -)"
+        if fallback="$(PATH="$system_path" command -v \(lang) 2>/dev/null)"; then
+            exec "$fallback" "$@"
+        fi
+        echo "ktstack: \(lang) is not installed — open KTStack to add a runtime" >&2
+        exit 127
         """
     }
 
