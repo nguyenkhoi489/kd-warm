@@ -18,6 +18,7 @@ final class KTOverlayCenter: ObservableObject {
     @Published var newSitePresented = false
     @Published var connectPresented = false
     @Published var newDatabasePresented = false
+    @Published var apiTesterSite: Site?
 
     private var dismissTask: Task<Void, Never>?
 

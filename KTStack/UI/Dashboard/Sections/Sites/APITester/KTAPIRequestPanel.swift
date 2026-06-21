@@ -1,0 +1,248 @@
+import SwiftUI
+import KTStackKit
+
+struct KTAPIRequestPanel: View {
+    @ObservedObject var vm: APITesterViewModel
+    let site: Site
+
+    enum BuilderTab: Hashable { case params, headers, body }
+
+    @State private var builderTab: BuilderTab = .params
+
+    var body: some View {
+        if let route = vm.selected {
+            VStack(spacing: 0) {
+                requestBar(route)
+                settingsRow
+                builderTabs
+                ScrollView { tabContent(route).padding(14) }
+                    .frame(maxHeight: 240)
+                Rectangle().fill(KTColor.sep).frame(height: 0.5)
+                responseArea
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            placeholder
+        }
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "network").font(.system(size: 28)).foregroundStyle(KTColor.faint)
+            Text("Select a route to start").font(.jbMono(13)).foregroundStyle(KTColor.muted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func requestBar(_ route: APIRoute) -> some View {
+        HStack(spacing: 10) {
+            KTAPIMethodBadge(method: route.method)
+            Text(urlPreview(route))
+                .font(.jbMono(12.5))
+                .foregroundStyle(KTColor.ink2)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            KTButton(title: "Send", systemImage: "paperplane.fill", kind: .primary,
+                     isLoading: vm.isSending) {
+                Task { await vm.send(site: site) }
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 11)
+        .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+    }
+
+    private var settingsRow: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Text("Timeout").font(.jbMono(11)).foregroundStyle(KTColor.faint)
+                Stepper(value: $vm.timeoutSeconds, in: 1...300, step: 5) {
+                    Text("\(Int(vm.timeoutSeconds))s").font(.jbMono(12, .medium)).foregroundStyle(KTColor.ink2)
+                }
+                .controlSize(.mini)
+            }
+            HStack(spacing: 6) {
+                Text("Body limit").font(.jbMono(11)).foregroundStyle(KTColor.faint)
+                Stepper(value: $vm.bodyDisplayLimitKB, in: 10...2000, step: 50) {
+                    Text("\(vm.bodyDisplayLimitKB) KB").font(.jbMono(12, .medium)).foregroundStyle(KTColor.ink2)
+                }
+                .controlSize(.mini)
+            }
+            Spacer()
+            if vm.hasUnresolvedPathParams {
+                Label("path param empty", systemImage: "exclamationmark.triangle.fill")
+                    .font(.jbMono(11)).foregroundStyle(Color(hex: 0xC07A00))
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 7)
+        .background(Color(hex: 0xFBFBFC))
+        .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+    }
+
+    private var builderTabs: some View {
+        HStack {
+            KTSegmentedTabs(items: [.init(value: BuilderTab.params, label: "Params"),
+                                    .init(value: .headers, label: "Headers"),
+                                    .init(value: .body, label: "Body")],
+                            selection: $builderTab)
+            Spacer()
+        }
+        .padding(.horizontal, 14).padding(.top, 10)
+    }
+
+    @ViewBuilder
+    private func tabContent(_ route: APIRoute) -> some View {
+        switch builderTab {
+        case .params: paramsTab(route)
+        case .headers: KTEditablePairList(pairs: $vm.requestDraft.headers,
+                                          keyPlaceholder: "Header", valuePlaceholder: "Value")
+        case .body: bodyTab(route)
+        }
+    }
+
+    @ViewBuilder
+    private func paramsTab(_ route: APIRoute) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !vm.requestDraft.pathParams.isEmpty {
+                sectionLabel("PATH")
+                KTEditablePairList(pairs: $vm.requestDraft.pathParams,
+                                   keyPlaceholder: "Name", valuePlaceholder: "Value", lockKeys: true)
+            }
+            sectionLabel("QUERY")
+            KTEditablePairList(pairs: $vm.requestDraft.query,
+                               keyPlaceholder: "Key", valuePlaceholder: "Value")
+            fieldsReference(route)
+        }
+    }
+
+    @ViewBuilder
+    private func bodyTab(_ route: APIRoute) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            KTSegmentedTabs(items: RequestBodyMode.allCases.map { .init(value: $0, label: $0.label) },
+                            selection: $vm.requestDraft.bodyMode)
+            if vm.requestDraft.bodyMode != .none {
+                TextEditor(text: $vm.requestDraft.bodyText)
+                    .font(.jbMono(12))
+                    .frame(minHeight: 120)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color(hex: 0xFBFBFC)))
+                    .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
+            }
+            fieldsReference(route)
+        }
+    }
+
+    @ViewBuilder
+    private func fieldsReference(_ route: APIRoute) -> some View {
+        if !route.rulesResolved {
+            HStack(spacing: 7) {
+                Image(systemName: "info.circle").font(.system(size: 12))
+                Text("Validation rules unavailable for this route.").font(.jbMono(11.5))
+            }
+            .foregroundStyle(Color(hex: 0xC07A00))
+            .padding(.top, 4)
+        } else if !route.fields.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                sectionLabel("RULES")
+                ForEach(route.fields, id: \.name) { field in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(field.name).font(.jbMono(12, .medium)).foregroundStyle(KTColor.ink2)
+                        if field.required {
+                            Text("required").font(.jbMono(10, .bold)).foregroundStyle(KTColor.danger)
+                        }
+                        Spacer(minLength: 8)
+                        Text(field.rules.joined(separator: " · "))
+                            .font(.jbMono(11)).foregroundStyle(KTColor.faint)
+                            .frame(maxWidth: 220, alignment: .trailing)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text).font(.jbMono(11, .bold)).foregroundStyle(KTColor.ink3)
+    }
+
+    @ViewBuilder
+    private var responseArea: some View {
+        if let error = vm.sendError {
+            banner(error, color: KTColor.danger, icon: "xmark.octagon.fill")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let response = vm.response {
+            KTAPIResponseView(response: response, bodyLimitKB: vm.bodyDisplayLimitKB)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(spacing: 6) {
+                Image(systemName: "arrow.down.circle").font(.system(size: 22)).foregroundStyle(KTColor.faint)
+                Text("Send the request to see the response").font(.jbMono(12)).foregroundStyle(KTColor.muted)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func banner(_ text: String, color: Color, icon: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon).font(.system(size: 13))
+            Text(text).font(.jbMono(12)).foregroundStyle(KTColor.ink2)
+            Spacer()
+        }
+        .foregroundStyle(color)
+        .padding(14)
+    }
+
+    private func urlPreview(_ route: APIRoute) -> String {
+        let scheme = site.secure ? "https" : "http"
+        var path = route.uri.hasPrefix("/") ? route.uri : "/" + route.uri
+        for param in vm.requestDraft.pathParams where !param.value.isEmpty {
+            path = path.replacingOccurrences(of: "{\(param.key)?}", with: param.value)
+            path = path.replacingOccurrences(of: "{\(param.key)}", with: param.value)
+        }
+        return "\(scheme)://\(site.domain)\(path)"
+    }
+}
+
+struct KTEditablePairList: View {
+    @Binding var pairs: [EditablePair]
+    var keyPlaceholder: String
+    var valuePlaceholder: String
+    var lockKeys: Bool = false
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ForEach($pairs) { $pair in
+                HStack(spacing: 8) {
+                    field(text: $pair.key, placeholder: keyPlaceholder, disabled: lockKeys)
+                        .frame(width: 150)
+                    field(text: $pair.value, placeholder: valuePlaceholder, disabled: false)
+                    if !lockKeys {
+                        Button { pairs.removeAll { $0.id == pair.id } } label: {
+                            Image(systemName: "minus.circle").font(.system(size: 13)).foregroundStyle(KTColor.muted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            if !lockKeys {
+                Button { pairs.append(EditablePair(key: "", value: "")) } label: {
+                    Label("Add", systemImage: "plus").font(.jbMono(11.5)).foregroundStyle(KTColor.accent)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func field(text: Binding<String>, placeholder: String, disabled: Bool) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.jbMono(12))
+            .foregroundStyle(disabled ? KTColor.ink3 : KTColor.ink)
+            .disabled(disabled)
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(hex: 0xFBFBFC)))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
+    }
+}

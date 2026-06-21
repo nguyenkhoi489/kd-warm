@@ -40,6 +40,7 @@ struct DashboardWindow: View {
             .animation(.easeOut(duration: 0.15), value: overlay.newSitePresented)
             .animation(.easeOut(duration: 0.15), value: overlay.connectPresented)
             .animation(.easeOut(duration: 0.15), value: overlay.newDatabasePresented)
+            .animation(.easeOut(duration: 0.15), value: overlay.apiTesterSite?.id)
             .ktOverlayHost(overlay)
             .ignoresSafeArea(.container, edges: .top)
             .background(KTWindowChrome())
@@ -77,6 +78,11 @@ struct DashboardWindow: View {
                                    overlay.newDatabasePresented = false
                                    overlay.toast("Database “\(name)” created")
                                })
+                .transition(.opacity)
+        }
+        if let site = overlay.apiTesterSite {
+            KTAPITesterModal(site: site, onClose: { overlay.apiTesterSite = nil })
+                .id(site.id)
                 .transition(.opacity)
         }
     }

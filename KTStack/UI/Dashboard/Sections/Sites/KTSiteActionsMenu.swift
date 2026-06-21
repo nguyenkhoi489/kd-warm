@@ -8,7 +8,12 @@ struct KTSiteActionsMenu: View {
     let onRemove: () -> Void
     var onError: (String) -> Void = { _ in }
 
+    @EnvironmentObject private var overlay: KTOverlayCenter
     @State private var open = false
+
+    private var isLaravel: Bool {
+        LaravelSiteProbe().isLaravel(siteAt: URL(fileURLWithPath: site.path))
+    }
 
     var body: some View {
         Button { open.toggle() } label: {
@@ -27,6 +32,9 @@ struct KTSiteActionsMenu: View {
                 row("Open Terminal Here", "terminal", "⌥⌘T") { KTSiteActions.openTerminal(site) }
                 divider
                 row("Logs", "text.alignleft", "⌘L", action: onOpenLogs)
+                if isLaravel {
+                    row("API Tester", "network", "") { overlay.apiTesterSite = site }
+                }
                 if site.type == .php {
                     row("Configure VS Code Debug", "curlybraces", "") {
                         do { try KTSiteActions.configureVSCode(site) }
