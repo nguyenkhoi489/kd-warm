@@ -1,6 +1,18 @@
 import SwiftUI
 import KTStackKit
 
+private struct KTTooltipPayload {
+    let text: String
+    let anchor: Anchor<CGRect>
+}
+
+private struct KTTooltipKey: PreferenceKey {
+    static var defaultValue: KTTooltipPayload? = nil
+    static func reduce(value: inout KTTooltipPayload?, nextValue: () -> KTTooltipPayload?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
 private struct KTTooltipModifier: ViewModifier {
     let text: String
     let delay: Double
@@ -20,27 +32,23 @@ private struct KTTooltipModifier: ViewModifier {
                     visible = false
                 }
             }
-            .overlay(alignment: .top) {
-                if visible {
-                    bubble
-                        .alignmentGuide(.top) { $0[.bottom] }
-                        .offset(y: -6)
-                        .transition(.opacity)
-                        .allowsHitTesting(false)
-                }
+            .anchorPreference(key: KTTooltipKey.self, value: .bounds) { anchor in
+                visible ? KTTooltipPayload(text: text, anchor: anchor) : nil
             }
-            .zIndex(visible ? 1000 : 0)
-            .animation(.easeOut(duration: 0.12), value: visible)
     }
+}
 
-    private var bubble: some View {
+private struct KTTooltipBubble: View {
+    let text: String
+
+    var body: some View {
         Text(text)
             .font(.jbMono(11))
             .foregroundStyle(.white)
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 9).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.88)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.9)))
             .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
     }
 }
@@ -48,5 +56,21 @@ private struct KTTooltipModifier: ViewModifier {
 extension View {
     func ktTip(_ text: String, delay: Double = 0.35) -> some View {
         modifier(KTTooltipModifier(text: text, delay: delay))
+    }
+
+    func ktTooltipHost() -> some View {
+        overlayPreferenceValue(KTTooltipKey.self) { payload in
+            GeometryReader { proxy in
+                if let payload {
+                    let rect = proxy[payload.anchor]
+                    KTTooltipBubble(text: payload.text)
+                        .position(x: rect.midX, y: rect.minY)
+                        .offset(y: -17)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.1), value: payload?.text)
+        }
     }
 }

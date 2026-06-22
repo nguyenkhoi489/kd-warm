@@ -80,6 +80,7 @@ private struct KTSitesContent: View {
                 .padding(.top, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .ktTooltipHost()
         .background(KTColor.contentBg)
         .sheet(isPresented: $showScan) { ScanImportSheet(registry: registry, sitesRoot: preferences.sitesRootURL) }
         .sheet(isPresented: $showImport) { MigrateImportSheet(registry: registry, availableVersions: server.availableVersions) }
