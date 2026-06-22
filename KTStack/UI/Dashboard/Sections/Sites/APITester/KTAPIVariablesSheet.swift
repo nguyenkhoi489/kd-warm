@@ -14,6 +14,8 @@ struct KTAPIVariablesSheet: View {
             Rectangle().fill(KTColor.sep).frame(height: 0.5)
             rows
             Rectangle().fill(KTColor.sep).frame(height: 0.5)
+            addBar
+            Rectangle().fill(KTColor.sep).frame(height: 0.5)
             footer
         }
         .frame(width: 720, height: 560)
@@ -64,13 +66,17 @@ struct KTAPIVariablesSheet: View {
                     ForEach($vm.variables) { $variable in
                         row($variable)
                     }
-                    addButton
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 18).padding(.vertical, 14)
                 .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
             }
         }
+    }
+
+    private var addBar: some View {
+        addButton
+            .padding(.horizontal, 18).padding(.vertical, 10)
     }
 
     private func row(_ variable: Binding<EditablePair>) -> some View {
