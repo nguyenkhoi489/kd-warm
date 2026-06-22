@@ -113,11 +113,12 @@ struct KTConnectModal: View {
             }
             .buttonStyle(.plain)
             .disabled(testing || !isValid)
-            testStatus.padding(.leading, 12)
-            Spacer()
+            testStatus.padding(.leading, 12).layoutPriority(-1)
+            Spacer(minLength: 12)
             HStack(spacing: 10) {
                 Button(action: onClose) {
                     Text("Cancel").font(.jbMono(14, .medium)).foregroundStyle(KTColor.ink)
+                        .fixedSize()
                         .padding(.horizontal, 20).padding(.vertical, 10)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white))
                         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
@@ -126,6 +127,7 @@ struct KTConnectModal: View {
                 .buttonStyle(.plain).keyboardShortcut(.cancelAction)
                 Button(action: connect) {
                     Text("Connect").font(.jbMono(14, .regular)).foregroundStyle(.white)
+                        .fixedSize()
                         .padding(.horizontal, 22).padding(.vertical, 10)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(KTColor.accentGradient))
                         .contentShape(Rectangle())
@@ -133,6 +135,7 @@ struct KTConnectModal: View {
                 .buttonStyle(.plain).keyboardShortcut(.defaultAction)
                 .disabled(!isValid).opacity(isValid ? 1 : 0.5)
             }
+            .fixedSize()
         }
         .padding(.horizontal, 24).padding(.vertical, 16)
         .overlay(alignment: .top) { Rectangle().fill(Color(hex: 0xF0F0F3)).frame(height: 0.5) }
@@ -148,7 +151,7 @@ struct KTConnectModal: View {
         } else if tested {
             HStack(spacing: 6) {
                 Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
-                Text("Connection successful").font(.jbMono(13, .regular))
+                Text("Connection successful").font(.jbMono(13, .regular)).lineLimit(1)
             }
             .foregroundStyle(KTColor.online)
         }
