@@ -74,7 +74,7 @@ struct KTSiteListRow: View {
     private var nodePollKey: String { "\(site.id)-\(site.nodeEnabled)" }
 
     private var mainRow: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 11) {
             KTIconTile(tint: KTSiteVisuals.tint(for: site.type)) {
                 KTSiteGlyph(kind: KTSiteVisuals.kind(for: site.type), size: 19,
                             color: KTSiteVisuals.tint(for: site.type).fg)
@@ -88,7 +88,8 @@ struct KTSiteListRow: View {
                     .lineLimit(1)
                     .onSubmit(commitDomain)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(-1)
 
             if site.type == .php {
                 KTPhpMenu(current: site.phpVersion, versions: availableVersions, onSelect: onSetVersion)
@@ -106,7 +107,7 @@ struct KTSiteListRow: View {
             if site.type == .node {
                 KTNodeStatusBadge(state: nodeState)
             } else {
-                KTStatusLabel(running: canOpen).frame(width: 92, alignment: .leading)
+                KTStatusLabel(running: canOpen).frame(width: 78, alignment: .leading)
             }
 
             KTToggle(isOn: site.secure, action: { onSetSecure(!site.secure) })

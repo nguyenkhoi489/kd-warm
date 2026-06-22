@@ -11,7 +11,7 @@ struct KTNodeStatusBadge: View {
                 .font(.jbMono(12.5, .medium))
                 .foregroundStyle(KTColor.muted)
         }
-        .frame(width: 124, alignment: .leading)
+        .frame(width: 104, alignment: .leading)
     }
 }
 
