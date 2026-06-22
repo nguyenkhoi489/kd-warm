@@ -78,9 +78,7 @@ public struct BinaryStager {
         guard fileManager.isReadableFile(atPath: source.path) else {
             throw StageError.missingSource(source.path)
         }
-        guard Self.verifySignature(at: source) else {
-            throw StageError.signatureInvalid(source.path)
-        }
+        try enforceSignature(at: source)
 
         if try shouldRestage(source: source, dest: dest) {
             do {
@@ -94,9 +92,16 @@ public struct BinaryStager {
             }
         }
 
-        guard Self.verifySignature(at: dest) else {
-            throw StageError.signatureInvalid(dest.path)
-        }
+        try enforceSignature(at: dest)
+    }
+
+    private func enforceSignature(at url: URL) throws {
+        guard !Self.verifySignature(at: url) else { return }
+        #if DEBUG
+        NSLog("KTStack: skipping signature check for unsigned binary in DEBUG build: \(url.path)")
+        #else
+        throw StageError.signatureInvalid(url.path)
+        #endif
     }
 
     
