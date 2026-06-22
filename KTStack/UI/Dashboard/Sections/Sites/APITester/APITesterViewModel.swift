@@ -37,7 +37,7 @@ final class APITesterViewModel: ObservableObject {
     @Published var filter: String = ""
     @Published var selected: APIRoute?
     @Published var timeoutSeconds: Double = 30
-    @Published var bodyDisplayLimitKB: Int = 200
+    @Published var bodyDisplayLimitMB: Int = 2
     @Published var requestDraft = RequestDraft()
     @Published var variables: [EditablePair] = []
     @Published var isEditingVariables = false

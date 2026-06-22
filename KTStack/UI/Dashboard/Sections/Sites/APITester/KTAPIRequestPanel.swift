@@ -84,19 +84,15 @@ struct KTAPIRequestPanel: View {
 
     private var settingsRow: some View {
         HStack(spacing: 16) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Text("Timeout").font(.jbMono(11)).foregroundStyle(KTColor.faint)
-                Stepper(value: $vm.timeoutSeconds, in: 1...300, step: 5) {
-                    Text("\(Int(vm.timeoutSeconds))s").font(.jbMono(12, .medium)).foregroundStyle(KTColor.ink2)
-                }
-                .controlSize(.mini)
+                numberField(value: timeoutBinding, suffix: "s", range: 1...300)
+                    .help("Seconds to wait for a response before the request times out")
             }
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Text("Body limit").font(.jbMono(11)).foregroundStyle(KTColor.faint)
-                Stepper(value: $vm.bodyDisplayLimitKB, in: 10...2000, step: 50) {
-                    Text("\(vm.bodyDisplayLimitKB) KB").font(.jbMono(12, .medium)).foregroundStyle(KTColor.ink2)
-                }
-                .controlSize(.mini)
+                numberField(value: $vm.bodyDisplayLimitMB, suffix: "MB", range: 1...100)
+                    .help("Maximum response body size rendered in the viewer; larger bodies are truncated")
             }
             Spacer()
             if vm.hasUnresolvedPathParams {
@@ -107,6 +103,29 @@ struct KTAPIRequestPanel: View {
         .padding(.horizontal, 14).padding(.vertical, 7)
         .background(Color(hex: 0xFBFBFC))
         .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+    }
+
+    private var timeoutBinding: Binding<Int> {
+        Binding(get: { Int(vm.timeoutSeconds) }, set: { vm.timeoutSeconds = Double($0) })
+    }
+
+    private func numberField(value: Binding<Int>, suffix: String, range: ClosedRange<Int>) -> some View {
+        HStack(spacing: 3) {
+            TextField("", value: value, format: .number)
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.trailing)
+                .font(.jbMono(12, .medium))
+                .foregroundStyle(KTColor.ink2)
+                .frame(width: 40)
+                .onChange(of: value.wrappedValue) { new in
+                    let clamped = min(max(new, range.lowerBound), range.upperBound)
+                    if clamped != new { value.wrappedValue = clamped }
+                }
+            Text(suffix).font(.jbMono(11)).foregroundStyle(KTColor.faint)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
     }
 
     private var builderTabs: some View {
@@ -201,7 +220,7 @@ struct KTAPIRequestPanel: View {
             banner(error, color: KTColor.danger, icon: "xmark.octagon.fill")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let response = vm.response {
-            KTAPIResponseView(response: response, bodyLimitKB: vm.bodyDisplayLimitKB)
+            KTAPIResponseView(response: response, bodyLimitKB: vm.bodyDisplayLimitMB * 1024)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 6) {
