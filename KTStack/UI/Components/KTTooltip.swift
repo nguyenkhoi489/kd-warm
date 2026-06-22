@@ -26,10 +26,10 @@ private struct KTTooltipModifier: ViewModifier {
                         .alignmentGuide(.top) { $0[.bottom] }
                         .offset(y: -6)
                         .transition(.opacity)
-                        .zIndex(1000)
                         .allowsHitTesting(false)
                 }
             }
+            .zIndex(visible ? 1000 : 0)
             .animation(.easeOut(duration: 0.12), value: visible)
     }
 
