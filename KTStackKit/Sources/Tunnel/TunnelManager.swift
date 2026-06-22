@@ -131,9 +131,7 @@ public final class TunnelManager: ObservableObject {
             await controller.start(binary: binary, originPort: originPort, localDomain: site.domain,
                 onURL: { [weak self] url in
                     guard let host = url.host else { return }
-                    await MainActor.run { [weak self] in
-                        self?.applyPublicHost(site: site, port: originPort, publicHost: host)
-                    }
+                    await self?.applyPublicHost(site: site, port: originPort, publicHost: host)
                 },
                 onStatus: { [weak self] status in
                     Task { @MainActor [weak self] in
@@ -181,11 +179,11 @@ public final class TunnelManager: ObservableObject {
         try config.write(to: tunnelVhostURL(site.id), atomically: true, encoding: .utf8)
     }
 
-    private func applyPublicHost(site: Site, port: Int, publicHost: String) {
+    private func applyPublicHost(site: Site, port: Int, publicHost: String) async {
         guard sessions[site.id]?.status.isBusy == true else { return }
         guard FileManager.default.fileExists(atPath: tunnelVhostURL(site.id).path) else { return }
         guard (try? writeTunnelVhost(site: site, port: port, publicHost: publicHost)) != nil else { return }
-        Task { await reloadNginxTolerant() }
+        await reloadNginxTolerant()
     }
 
     private func activateTunnelVhost(port: Int) async throws {
