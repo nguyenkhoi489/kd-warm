@@ -65,6 +65,7 @@ struct KTAPIVariablesSheet: View {
                         row($variable)
                     }
                     addButton
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 18).padding(.vertical, 14)
                 .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
