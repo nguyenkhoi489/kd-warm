@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if HelperIdentity.hasSigningIdentity { preferences.launchAtLogin = LoginItemService.isEnabled }
         updater.setAutomaticChecks(preferences.automaticUpdates)
         updater.setChannel(preferences.releaseChannel == .beta ? "beta" : "")
-        if preferences.autoStartServer && !server.isRunning { server.start() }
+        if preferences.autoStartServer { services.startAll() }
     }
 
     

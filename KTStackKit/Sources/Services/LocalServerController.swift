@@ -178,7 +178,7 @@ public final class LocalServerController: ObservableObject {
     public func start() {
         guard !isBusy, !isRunning else { return }
         isBusy = true; lastError = nil
-        nginxStatus = .starting
+        nginxStatus = .starting; phpStatus = .starting
         ensureSeed()
         let sites = registry.sites
         let port = httpPort
@@ -362,7 +362,7 @@ public final class LocalServerController: ObservableObject {
         let changed = try generator.generate(sites: sites, port: port)
 
         let phpUp = !pools.activeVersions.isEmpty && pools.activeVersions.allSatisfy { pools.isRunning(version: $0) }
-        if phpUp {
+        if startNginx || phpUp {
             _ = try pools.reconcile(required: generator.poolVersions(for: sites))
             for version in pools.activeVersions {
                 try await Self.waitForSocket(pools.socket(for: version))
