@@ -48,7 +48,8 @@ struct MenuBarContentView: View {
 
     private var headerSubtitle: String {
         let running = services.snapshots.filter { $0.status == .running }.count
-        return "v0.1.0 · \(running) of \(services.snapshots.count) running"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
+        return "v\(version) · \(running) of \(services.snapshots.count) running"
     }
 
     private var servicesSection: some View {
