@@ -6,7 +6,9 @@ final class HelperCAManager {
 
 
     func installRootCA(pemData: Data) -> (Bool, String?) {
-        
+        if let rejection = RootCAConstraint.validateKTStackRootCA(pemData: pemData) {
+            return (false, rejection.message)
+        }
         let dir = URL(fileURLWithPath: "/Library/Application Support/KTStack")
         let tmp = dir.appendingPathComponent(".rootCA-install-\(UUID().uuidString).pem")
         defer { try? FileManager.default.removeItem(at: tmp) }

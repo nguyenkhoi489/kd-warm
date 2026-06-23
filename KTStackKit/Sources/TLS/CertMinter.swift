@@ -71,15 +71,7 @@ public struct CertMinter {
     }
 
     static func pemToDER(_ pem: Data) -> Data? {
-        guard let text = String(data: pem, encoding: .utf8) else { return nil }
-        let lines = text.split(separator: "\n")
-        var base64 = "", inside = false
-        for line in lines {
-            if line.contains("BEGIN CERTIFICATE") { inside = true; continue }
-            if line.contains("END CERTIFICATE") { break }
-            if inside { base64 += line }
-        }
-        return Data(base64Encoded: base64)
+        RootCAConstraint.pemToDER(pem)
     }
 }
 

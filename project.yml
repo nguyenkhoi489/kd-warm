@@ -154,6 +154,7 @@ targets:
       - path: KTStackKit/Sources/XPC/HelperXPCProtocol.swift
       - path: KTStackKit/Sources/XPC/HelperIdentityConstants.swift
       - path: KTStackKit/Sources/DNS/DNSConstants.swift
+      - path: KTStackKit/Sources/TLS/RootCAConstraint.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ktstack.helper
