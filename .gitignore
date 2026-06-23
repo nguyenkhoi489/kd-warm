@@ -96,7 +96,7 @@ assets/
 
 # External repos for study/reference
 external/
-
+guide/
 # Git worktrees (local development only)
 worktrees/
 
