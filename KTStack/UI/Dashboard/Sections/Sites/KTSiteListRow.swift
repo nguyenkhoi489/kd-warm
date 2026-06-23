@@ -68,7 +68,7 @@ struct KTSiteListRow: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .task(id: nodePollKey) { await pollNodeState() }
-        .task(id: site.path) { detectFramework() }
+        .task(id: site.path) { await detectFramework() }
         .onChange(of: site.domain) { new in domainDraft = new; domainError = false }
         .onChange(of: site.nodeCommand) { new in nodeCommandDraft = new ?? "" }
     }
@@ -171,11 +171,9 @@ struct KTSiteListRow: View {
         }
     }
 
-    private func detectFramework() {
+    private func detectFramework() async {
         guard site.type == .php else { return }
-        phpFramework = PHPFrameworkDetector().detect(
-            siteAt: URL(fileURLWithPath: site.path),
-            docroot: URL(fileURLWithPath: site.docroot))
+        phpFramework = await PHPFrameworkCache.shared.framework(path: site.path, docroot: site.docroot)
     }
 
     private func commitDomain() {

@@ -63,13 +63,11 @@ struct KTSiteGridCard: View {
                     .strokeBorder(KTColor.sep, lineWidth: 1))
         )
         .compositingGroup()
-        .task(id: site.path) { detectFramework() }
+        .task(id: site.path) { await detectFramework() }
     }
 
-    private func detectFramework() {
+    private func detectFramework() async {
         guard site.type == .php else { return }
-        phpFramework = PHPFrameworkDetector().detect(
-            siteAt: URL(fileURLWithPath: site.path),
-            docroot: URL(fileURLWithPath: site.docroot))
+        phpFramework = await PHPFrameworkCache.shared.framework(path: site.path, docroot: site.docroot)
     }
 }
