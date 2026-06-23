@@ -123,4 +123,20 @@ fi
 
 echo "=== verify ==="
 codesign --verify --deep --strict --verbose=2 "$APP"
+
+echo "=== 6. guard: app and helper share one TeamIdentifier ==="
+team_of() { codesign -dvv "$1" 2>&1 | sed -n 's/^TeamIdentifier=//p'; }
+app_team="$(team_of "$APP")"
+helper_bin="$(find "$APP" -type f -name 'KTStackHelper' -print -quit)"
+if [[ -n "$helper_bin" ]]; then
+    helper_team="$(team_of "$helper_bin")"
+    if [[ -z "$app_team" || "$app_team" != "$helper_team" ]]; then
+        echo "FATAL: app team '$app_team' != helper team '$helper_team'" >&2
+        exit 1
+    fi
+    echo "  team match: $app_team"
+else
+    echo "  helper not embedded (pre-Phase-9); skipping team-match guard"
+fi
+
 echo "SIGN OK — run scripts/release/notarize.sh next"
