@@ -5,6 +5,7 @@ struct KTSitesHeader: View {
     let siteCount: Int
     let onScan: () -> Void
     let onImport: () -> Void
+    let onRestore: () -> Void
     let onNewSite: () -> Void
 
     var body: some View {
@@ -17,6 +18,7 @@ struct KTSitesHeader: View {
             Spacer()
             KTButton(title: "Scan", systemImage: "arrow.triangle.2.circlepath", kind: .secondary, action: onScan)
             KTButton(title: "Import", systemImage: "square.and.arrow.down", kind: .secondary, action: onImport)
+            KTButton(title: "Restore", systemImage: "arrow.uturn.backward.circle", kind: .secondary, action: onRestore)
             newSiteButton
         }
     }

@@ -5,7 +5,7 @@ public final class WordPressRestoreService: Sendable {
     private let dumpService: DumpService
     private let provisioner: DatabaseProvisioner
     private let staging: RestoreStagingArea
-    private let register: @Sendable (URL) async throws -> Site
+    private let register: @Sendable (URL, String) async throws -> Site
     private let unregister: @Sendable (Site) async -> Void
     private let applyServerConfig: @Sendable () async throws -> Void
     private let enableHTTPS: @Sendable (Site) async throws -> Void
@@ -13,7 +13,7 @@ public final class WordPressRestoreService: Sendable {
     public init(paths: AppSupportPaths,
                 dumpService: DumpService = DumpService(),
                 ensureEngine: @escaping @Sendable () async throws -> Void,
-                register: @escaping @Sendable (URL) async throws -> Site,
+                register: @escaping @Sendable (URL, String) async throws -> Site,
                 unregister: @escaping @Sendable (Site) async -> Void,
                 applyServerConfig: @escaping @Sendable () async throws -> Void,
                 enableHTTPS: @escaping @Sendable (Site) async throws -> Void) {
@@ -95,7 +95,7 @@ public final class WordPressRestoreService: Sendable {
 
             try Task.checkCancellation()
             emit(RestoreEvent(phase: .registeringSite, message: "Registering site…"))
-            let site = try await register(targetDocroot)
+            let site = try await register(targetDocroot, database)
             undo.append { await self.unregister(site); try? await self.applyServerConfig() }
 
             try Task.checkCancellation()
