@@ -24,6 +24,8 @@ public struct WPConfigWriter: Sendable {
             return
         }
         _ = try? cli.run(["config", "shuffle-salts", cli.pathArgument(docroot)] + WordPressCLI.skipFlags, in: docroot)
+        _ = try? cli.run(["config", "set", "DISABLE_WP_CRON", "true", "--raw", "--type=constant",
+                          cli.pathArgument(docroot)] + WordPressCLI.skipFlags, in: docroot)
     }
 
     private func writeTemplate(into docroot: URL, database: String, prefix: String) throws {
@@ -39,6 +41,7 @@ public struct WPConfigWriter: Sendable {
         define('DB_CHARSET', 'utf8mb4');
         define('DB_COLLATE', '');
         \(saltLines)
+        define('DISABLE_WP_CRON', true);
         $table_prefix = '\(prefix)';
         if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }
         require_once ABSPATH . 'wp-settings.php';
