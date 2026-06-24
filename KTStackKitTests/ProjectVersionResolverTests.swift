@@ -86,6 +86,63 @@ final class ProjectVersionResolverTests: XCTestCase {
         XCTAssertEqual(resolver.selectVersion(.php, forProjectAt: proj, installed: ["8.4", "../../bin"]), "8.4")
     }
 
+    private func writeSitesStore(_ paths: AppSupportPaths, _ entries: [(path: String, php: String)]) throws {
+        try FileManager.default.createDirectory(at: paths.sitesRegistryFile.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        let body = entries.map { #"{"path":"\#($0.path)","phpVersion":"\#($0.php)"}"# }.joined(separator: ",")
+        try "[\(body)]".write(to: paths.sitesRegistryFile, atomically: true, encoding: .utf8)
+    }
+
+    func testSitePinOverridesComposerAndHighestForTerminal() throws {
+        let root = tmp.appendingPathComponent("appsupport")
+        let paths = AppSupportPaths(root: root)
+        let site = tmp.appendingPathComponent("VMTA_Laravel")
+        try FileManager.default.createDirectory(at: site, withIntermediateDirectories: true)
+        let composer = #"{"require":{"php":"^8.2"}}"#
+        try composer.write(to: site.appendingPathComponent("composer.json"), atomically: true, encoding: .utf8)
+        try writeSitesStore(paths, [(site.path, "8.1")])
+
+        let resolver = ShellRuntimeBinResolver(paths: paths)
+        XCTAssertEqual(resolver.chooseVersion(.php, cwd: site, installed: ["7.4", "8.1", "8.3", "8.4"]), "8.1")
+    }
+
+    func testSitePinAppliesToSubdirectory() throws {
+        let root = tmp.appendingPathComponent("appsupport")
+        let paths = AppSupportPaths(root: root)
+        let site = tmp.appendingPathComponent("site")
+        let sub = site.appendingPathComponent("app/Http")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try writeSitesStore(paths, [(site.path, "8.1")])
+
+        let resolver = ShellRuntimeBinResolver(paths: paths)
+        XCTAssertEqual(resolver.chooseVersion(.php, cwd: sub, installed: ["8.1", "8.4"]), "8.1")
+    }
+
+    func testSitePinFallsThroughWhenVersionNotInstalled() throws {
+        let root = tmp.appendingPathComponent("appsupport")
+        let paths = AppSupportPaths(root: root)
+        let site = tmp.appendingPathComponent("site")
+        try FileManager.default.createDirectory(at: site, withIntermediateDirectories: true)
+        try writeSitesStore(paths, [(site.path, "8.2")])
+
+        let resolver = ShellRuntimeBinResolver(paths: paths)
+        XCTAssertEqual(resolver.chooseVersion(.php, cwd: site, installed: ["8.1", "8.4"]), "8.4")
+    }
+
+    func testTerminalOutsideAnySiteUsesMarkerResolution() throws {
+        let root = tmp.appendingPathComponent("appsupport")
+        let paths = AppSupportPaths(root: root)
+        let site = tmp.appendingPathComponent("site")
+        try FileManager.default.createDirectory(at: site, withIntermediateDirectories: true)
+        try writeSitesStore(paths, [(site.path, "8.1")])
+        let other = tmp.appendingPathComponent("scratch")
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try "8.3\n".write(to: other.appendingPathComponent(".php-version"), atomically: true, encoding: .utf8)
+
+        let resolver = ShellRuntimeBinResolver(paths: paths)
+        XCTAssertEqual(resolver.chooseVersion(.php, cwd: other, installed: ["8.1", "8.3", "8.4"]), "8.3")
+    }
+
     func testConfinedBinaryRejectsInvalidVersionString() throws {
         let paths = AppSupportPaths(root: tmp.appendingPathComponent("as"))
         XCTAssertThrowsError(try ShellRuntimeBinResolver(paths: paths).confinedBinary(.php, version: "../../bin"))

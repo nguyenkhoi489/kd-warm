@@ -8,7 +8,12 @@ public struct ShellRuntimeBinResolver: Sendable {
 
     public func chooseVersion(_ lang: RuntimeLanguage, cwd: URL, installed: [String],
                               preferred: String? = nil) -> String? {
-        ProjectVersionResolver().selectVersion(lang, forProjectAt: cwd, installed: installed, preferred: preferred)
+        if lang == .php,
+           let pinned = SiteRuntimePins(paths: paths).phpVersion(forProjectAt: cwd),
+           installed.filter(ProjectVersionResolver.isValidVersion).contains(pinned) {
+            return pinned
+        }
+        return ProjectVersionResolver().selectVersion(lang, forProjectAt: cwd, installed: installed, preferred: preferred)
     }
 
     public func confinedBinary(_ lang: RuntimeLanguage, version: String) throws -> URL {

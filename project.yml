@@ -182,6 +182,7 @@ targets:
       - path: KTStackKit/Sources/Runtimes/RuntimeCatalog.swift
       - path: KTStackKit/Sources/Shell/ProjectVersionResolver.swift
       - path: KTStackKit/Sources/Shell/ShellRuntimeBinResolver.swift
+      - path: KTStackKit/Sources/Shell/SiteRuntimePins.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ktstack.resolve
