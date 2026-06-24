@@ -4,8 +4,10 @@ import KTStackKit
 struct KTSiteActionsMenu: View {
     let site: Site
     let canOpen: Bool
+    let isWordPress: Bool
     let onOpenLogs: () -> Void
     let onRemove: () -> Void
+    var onRestore: () -> Void = {}
     var onError: (String) -> Void = { _ in }
 
     @EnvironmentObject private var overlay: KTOverlayCenter
@@ -41,6 +43,9 @@ struct KTSiteActionsMenu: View {
                             do { try KTSiteActions.configureVSCode(site) }
                             catch { onError(error.localizedDescription) }
                         }
+                    }
+                    if isWordPress {
+                        row("Restore from Backup…", "arrow.uturn.backward.circle", "", action: onRestore)
                     }
                 }
                 .padding(.horizontal, 6)

@@ -15,6 +15,7 @@ struct KTSiteGridCard: View {
     let onToggleShare: (Bool) -> Void
     let onRemove: () -> Void
     var onError: (String) -> Void = { _ in }
+    var onRestore: () -> Void = {}
 
     @State private var phpFramework: PHPFramework = .plain
 
@@ -50,8 +51,9 @@ struct KTSiteGridCard: View {
                     .disabled(!canOpen)
                     .frame(maxWidth: .infinity)
                 KTSiteShareControls(shareStarting: shareStarting, shareURL: shareURL, onToggleShare: onToggleShare)
-                KTSiteActionsMenu(site: site, canOpen: canOpen,
-                                  onOpenLogs: onOpenLogs, onRemove: onRemove, onError: onError)
+                KTSiteActionsMenu(site: site, canOpen: canOpen, isWordPress: phpFramework == .wordpress,
+                                  onOpenLogs: onOpenLogs, onRemove: onRemove,
+                                  onRestore: onRestore, onError: onError)
             }
             .padding(.top, 14)
         }

@@ -18,6 +18,7 @@ struct KTSiteListRow: View {
     let onRemove: () -> Void
     var onError: (String) -> Void = { _ in }
     var onOpenRuntimes: () -> Void = {}
+    var onRestore: () -> Void = {}
 
     @EnvironmentObject private var server: LocalServerController
     @State private var domainDraft: String
@@ -34,7 +35,7 @@ struct KTSiteListRow: View {
          onSetSecure: @escaping (Bool) -> Void, onEditDomain: @escaping (String) throws -> Void,
          onOpenLogs: @escaping () -> Void, onToggleShare: @escaping (Bool) -> Void,
          onRemove: @escaping () -> Void, onError: @escaping (String) -> Void = { _ in },
-         onOpenRuntimes: @escaping () -> Void = {}) {
+         onOpenRuntimes: @escaping () -> Void = {}, onRestore: @escaping () -> Void = {}) {
         self.site = site
         self.availableVersions = availableVersions
         self.canOpen = canOpen
@@ -50,6 +51,7 @@ struct KTSiteListRow: View {
         self.onRemove = onRemove
         self.onError = onError
         self.onOpenRuntimes = onOpenRuntimes
+        self.onRestore = onRestore
         _domainDraft = State(initialValue: site.domain)
         _nodeCommandDraft = State(initialValue: site.nodeCommand ?? "")
     }
@@ -123,8 +125,9 @@ struct KTSiteListRow: View {
                 .disabled(!canOpen)
                 .ktTip("Open \(site.domain) in your browser")
 
-            KTSiteActionsMenu(site: site, canOpen: canOpen,
-                              onOpenLogs: onOpenLogs, onRemove: onRemove, onError: onError)
+            KTSiteActionsMenu(site: site, canOpen: canOpen, isWordPress: phpFramework == .wordpress,
+                              onOpenLogs: onOpenLogs, onRemove: onRemove,
+                              onRestore: onRestore, onError: onError)
         }
         .padding(.vertical, 13)
         .padding(.horizontal, 16)

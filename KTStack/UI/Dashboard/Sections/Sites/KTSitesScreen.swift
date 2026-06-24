@@ -50,7 +50,6 @@ private struct KTSitesContent: View {
             KTSitesHeader(siteCount: registry.sites.count,
                           onScan: { showScan = true },
                           onImport: { showImport = true },
-                          onRestore: { showRestore = true },
                           onNewSite: { overlay.newSitePresented = true })
                 .padding(.horizontal, KTSpacing.screenGutter)
                 .padding(.top, 18)
@@ -157,7 +156,8 @@ private struct KTSitesContent: View {
                               onToggleShare: { toggleShare(site, $0) },
                               onRemove: { confirmRemove(site) },
                               onError: { actionError = $0 },
-                              onOpenRuntimes: { onNavigate(.runtimes) })
+                              onOpenRuntimes: { onNavigate(.runtimes) },
+                              onRestore: { showRestore = true })
                 if index < filteredSites.count - 1 {
                     Rectangle().fill(KTColor.sepFaint).frame(height: 0.5).padding(.leading, 16)
                 }
@@ -177,7 +177,8 @@ private struct KTSitesContent: View {
                                onOpenLogs: { onOpenLogs("site-\(site.domain)-access") },
                                onToggleShare: { toggleShare(site, $0) },
                                onRemove: { confirmRemove(site) },
-                               onError: { actionError = $0 })
+                               onError: { actionError = $0 },
+                               onRestore: { showRestore = true })
             }
         }
     }
