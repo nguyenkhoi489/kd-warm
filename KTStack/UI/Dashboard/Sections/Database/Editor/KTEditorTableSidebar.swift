@@ -20,15 +20,15 @@ struct KTEditorTableSidebar: View {
             tableList
         }
         .frame(width: 288)
-        .background(Color(hex: 0xFBFBFC))
-        .overlay(alignment: .trailing) { Rectangle().fill(KTColor.sep).frame(width: 0.5) }
+        .background(KTEditorTheme.sidebar)
+        .overlay(alignment: .trailing) { Rectangle().fill(KTEditorTheme.separator).frame(width: 0.5) }
     }
 
     private var header: some View {
         HStack(spacing: 8) {
             Text("TABLES")
                 .font(.jbMono(12.5, .bold))
-                .foregroundStyle(KTColor.ink3)
+                .foregroundStyle(KTEditorTheme.label2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             iconButton("arrow.clockwise", action: onRefresh)
             iconButton("plus", action: onAddTable)
@@ -40,7 +40,7 @@ struct KTEditorTableSidebar: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color(hex: 0x86868F))
+                .foregroundStyle(KTEditorTheme.label2)
                 .frame(width: 26, height: 26)
                 .contentShape(Rectangle())
         }
@@ -49,15 +49,15 @@ struct KTEditorTableSidebar: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(KTColor.muted)
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(KTEditorTheme.label3)
             TextField("Filter tables…", text: $filter)
                 .textFieldStyle(.plain)
                 .font(.jbMono(13))
-                .foregroundStyle(KTColor.ink)
+                .foregroundStyle(KTEditorTheme.label)
         }
         .padding(.horizontal, 11).padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(Color(hex: 0xE6E6EC), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTEditorTheme.fieldBg))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
         .padding(.horizontal, 12).padding(.bottom, 8)
     }
 
@@ -78,17 +78,17 @@ struct KTEditorTableSidebar: View {
             HStack(spacing: 9) {
                 Image(systemName: table.isView ? "eye" : "tablecells")
                     .font(.system(size: 13))
-                    .foregroundStyle(active ? KTColor.accent : KTColor.muted)
+                    .foregroundStyle(active ? KTEditorTheme.onAccent : KTEditorTheme.label3)
                 Text(table.name)
-                    .font(.jbMono(13, active ? .regular : .regular))
-                    .foregroundStyle(active ? KTColor.accent : KTColor.ink2)
+                    .font(.jbMono(13, .regular))
+                    .foregroundStyle(active ? KTEditorTheme.onAccent : KTEditorTheme.label)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(active ? KTColor.accentSoft : Color.clear))
+                .fill(active ? KTEditorTheme.accent : Color.clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

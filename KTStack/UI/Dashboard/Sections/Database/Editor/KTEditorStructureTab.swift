@@ -32,6 +32,8 @@ struct KTEditorStructureTab: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(KTEditorTheme.content)
         .task(id: EditorTabTaskKey(value: vm.selectedTable, isActive: isActive)) {
             guard isActive else { return }
             await vm.loadStructure()
@@ -43,19 +45,19 @@ struct KTEditorStructureTab: View {
     private var indexesSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Indexes")
-                .font(.jbMono(12.5, .bold)).foregroundStyle(KTColor.ink3)
+                .font(.jbMono(12.5, .bold)).foregroundStyle(KTEditorTheme.label2)
                 .padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 8)
             ForEach(vm.currentIndexes) { index in
                 HStack(spacing: 8) {
                     Image(systemName: index.isUnique ? "lock" : "number")
-                        .font(.system(size: 10)).foregroundStyle(KTColor.muted)
-                    Text(index.name).font(.jbMono(13)).foregroundStyle(KTColor.ink2)
+                        .font(.system(size: 10)).foregroundStyle(KTEditorTheme.label2)
+                    Text(index.name).font(.jbMono(13)).foregroundStyle(KTEditorTheme.label)
                     Text(index.columns.joined(separator: ", "))
-                        .font(.jbMono(12.5)).foregroundStyle(KTColor.muted).lineLimit(1)
+                        .font(.jbMono(12.5)).foregroundStyle(KTEditorTheme.label2).lineLimit(1)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 7)
-                .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sepFaint).frame(height: 0.5) }
+                .overlay(alignment: .bottom) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -72,16 +74,16 @@ struct KTEditorStructureTab: View {
             ddlButton("minus", "Drop Column", enabled: selectedColumn != nil) {
                 vm.prepareDropColumn(selectedColumn ?? "")
             }
-            ddlButton("trash", "Drop Table", tint: KTColor.danger, enabled: vm.selectedTable != nil) {
+            ddlButton("trash", "Drop Table", tint: KTEditorTheme.Status.error, enabled: vm.selectedTable != nil) {
                 vm.prepareDropTable()
             }
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
     }
 
-    private func ddlButton(_ symbol: String, _ title: String, tint: Color = KTColor.ink2,
+    private func ddlButton(_ symbol: String, _ title: String, tint: Color = KTEditorTheme.label,
                            enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
@@ -90,8 +92,8 @@ struct KTEditorStructureTab: View {
             }
             .foregroundStyle(tint)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(KTEditorTheme.btnBg))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -109,28 +111,28 @@ struct KTEditorStructureTab: View {
             ForEach(Array(columns.enumerated()), id: \.offset) { index, title in
                 Text(title)
                     .font(.jbMono(12.5, .regular))
-                    .foregroundStyle(KTColor.ink3)
+                    .foregroundStyle(KTEditorTheme.label2)
                     .padding(.horizontal, 16).padding(.vertical, 9)
                     .frame(width: widths[index], alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: 0xF7F7FA))
-        .overlay(alignment: .bottom) { Rectangle().fill(Color(hex: 0xE6E6EC)).frame(height: 0.5) }
+        .background(KTEditorTheme.Grid.headerBg)
+        .overlay(alignment: .bottom) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
     }
 
     private func rows(_ widths: [CGFloat]) -> some View {
         ForEach(vm.currentColumns) { column in
             HStack(spacing: 0) {
-                cell(column.name, width: widths[0], font: .jbMono(13, .regular), color: KTColor.ink)
-                cell(column.dataType, width: widths[1], font: .jbMono(13), color: Color(hex: 0x8B5CF6))
-                cell(column.isNullable ? "YES" : "NO", width: widths[2], font: .jbMono(13), color: KTColor.ink3)
+                cell(column.name, width: widths[0], font: .jbMono(13, .regular), color: KTEditorTheme.label)
+                cell(column.dataType, width: widths[1], font: .jbMono(13), color: KTEditorTheme.Syntax.function)
+                cell(column.isNullable ? "YES" : "NO", width: widths[2], font: .jbMono(13), color: KTEditorTheme.label2)
                 keyCell(column, width: widths[3])
-                cell(column.defaultValue ?? "—", width: widths[4], font: .jbMono(13), color: KTColor.muted)
+                cell(column.defaultValue ?? "—", width: widths[4], font: .jbMono(13), color: KTEditorTheme.label2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selectedColumn == column.name ? KTColor.accentSoft : Color.clear)
-            .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sepFaint).frame(height: 0.5) }
+            .background(selectedColumn == column.name ? KTEditorTheme.accentSoft : Color.clear)
+            .overlay(alignment: .bottom) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
             .contentShape(Rectangle())
             .onTapGesture { selectedColumn = column.name }
         }
@@ -148,9 +150,9 @@ struct KTEditorStructureTab: View {
             if column.isPrimaryKey {
                 Text("PK")
                     .font(.jbMono(11, .bold))
-                    .foregroundStyle(KTColor.accent)
+                    .foregroundStyle(KTEditorTheme.accent)
                     .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(Capsule().fill(Color(hex: 0xEAF1FF)))
+                    .background(Capsule().fill(KTEditorTheme.accentSoft))
             } else {
                 Text("").frame(height: 1)
             }
@@ -161,8 +163,8 @@ struct KTEditorStructureTab: View {
 
     private func placeholder(_ message: String) -> some View {
         VStack(spacing: 6) {
-            Image(systemName: "list.bullet.rectangle").font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted)
+            Image(systemName: "list.bullet.rectangle").font(.system(size: 42, weight: .light)).foregroundStyle(KTEditorTheme.label3)
+            Text(message).font(.jbMono(13)).foregroundStyle(KTEditorTheme.label2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

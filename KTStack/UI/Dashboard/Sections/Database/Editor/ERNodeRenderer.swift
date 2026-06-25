@@ -16,9 +16,9 @@ enum ERNodeRenderer {
                          rect: CGRect,
                          isSelected: Bool) {
         let path = Path(roundedRect: rect, cornerRadius: cornerRadius)
-        context.fill(path, with: .color(.white))
+        context.fill(path, with: .color(KTEditorTheme.content2))
         context.stroke(path,
-                       with: .color(isSelected ? KTColor.accent : Color(hex: 0xE0E0E8)),
+                       with: .color(isSelected ? KTEditorTheme.accent : KTEditorTheme.separator),
                        lineWidth: isSelected ? 2 : 1)
 
         let headerHeight = ERSugiyamaLayout.headerHeight
@@ -27,16 +27,16 @@ enum ERNodeRenderer {
             p.addRoundedRect(in: headerRect,
                              cornerRadii: RectangleCornerRadii(topLeading: cornerRadius, topTrailing: cornerRadius))
         }
-        context.fill(headerPath, with: .color(KTColor.accentSoft))
+        context.fill(headerPath, with: .color(KTEditorTheme.accentSoft))
 
         let icon = Text(Image(systemName: "tablecells"))
-            .font(.system(size: 11)).foregroundColor(KTColor.accent)
+            .font(.system(size: 11)).foregroundColor(KTEditorTheme.accent)
         context.draw(context.resolve(icon),
                      at: CGPoint(x: rect.minX + iconXOffset, y: rect.minY + headerHeight / 2),
                      anchor: .leading)
 
         let displayName = truncate(node.table, max: maxTableNameChars)
-        let title = Text(displayName).font(.jbMono(12, .semibold)).foregroundColor(KTColor.ink)
+        let title = Text(displayName).font(.jbMono(12, .semibold)).foregroundColor(KTEditorTheme.label)
         context.draw(context.resolve(title),
                      at: CGPoint(x: rect.minX + headerTextXOffset, y: rect.minY + headerHeight / 2),
                      anchor: .leading)
@@ -45,7 +45,7 @@ enum ERNodeRenderer {
         var divider = Path()
         divider.move(to: CGPoint(x: rect.minX, y: dividerY))
         divider.addLine(to: CGPoint(x: rect.maxX, y: dividerY))
-        context.stroke(divider, with: .color(KTColor.sepFaint), lineWidth: 1)
+        context.stroke(divider, with: .color(KTEditorTheme.separator), lineWidth: 1)
 
         var clipped = context
         clipped.clip(to: path)
@@ -56,13 +56,13 @@ enum ERNodeRenderer {
 
             let name = Text(column.name)
                 .font(.jbMono(11, column.isPrimaryKey ? .semibold : .regular))
-                .foregroundColor(column.isPrimaryKey ? KTColor.ink : KTColor.ink2)
+                .foregroundColor(column.isPrimaryKey ? KTEditorTheme.label : KTEditorTheme.label2)
             clipped.draw(clipped.resolve(name),
                          at: CGPoint(x: rect.minX + columnNameXOffset, y: rowY),
                          anchor: .leading)
 
             let type = Text(truncate(column.dataType, max: maxTypeChars))
-                .font(.jbMono(10)).foregroundColor(KTColor.muted)
+                .font(.jbMono(10)).foregroundColor(KTEditorTheme.label2)
             clipped.draw(clipped.resolve(type),
                          at: CGPoint(x: rect.maxX - typeRightMargin, y: rowY),
                          anchor: .trailing)
@@ -75,9 +75,9 @@ enum ERNodeRenderer {
         let symbol: String
         let color: Color
         if column.isPrimaryKey {
-            symbol = "key.fill"; color = Color(hex: 0xE0A106)
+            symbol = "key.fill"; color = KTEditorTheme.Status.warning
         } else if column.isForeignKey {
-            symbol = "link"; color = KTColor.accent
+            symbol = "link"; color = KTEditorTheme.accent
         } else {
             return
         }

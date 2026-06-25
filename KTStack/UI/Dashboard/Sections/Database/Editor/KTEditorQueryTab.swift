@@ -23,6 +23,8 @@ struct KTEditorQueryTab: View {
             editorPanel
             results
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(KTEditorTheme.content)
         .task(id: EditorTabTaskKey(value: vm.selectedDatabase, isActive: isActive)) {
             guard isActive else { return }
             await vm.ensureSchemaCatalogLoaded()
@@ -51,8 +53,8 @@ struct KTEditorQueryTab: View {
                           keywords: SQLKeywords.forKind(vm.selectedProfile?.kind ?? .mysql))
                 .frame(minHeight: 96, maxHeight: 160)
                 .padding(6)
-                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(KTColor.fieldBorder, lineWidth: 0.5))
+                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(KTEditorTheme.content2))
+                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
             HStack(spacing: 10) {
                 runButton
                 if isBusy { stopButton }
@@ -60,24 +62,23 @@ struct KTEditorQueryTab: View {
                     .buttonStyle(SecondaryQueryButton())
                 Spacer()
                 if let result = vm.activeQueryTab?.result {
-                    Text("\(result.rowCount) rows · \(result.columns.count) cols")
-                        .font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
+                    CSVExportButton(defaultName: "query-result", result: result)
                 }
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
-        .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
     }
 
     private var runButton: some View {
         Button { Task { await vm.runActiveQueryTab() } } label: {
             HStack(spacing: 7) {
                 Image(systemName: "play.fill").font(.system(size: 11))
-                Text("Run Query").font(.jbMono(13, .regular))
+                Text("Run Query").font(.jbMono(13, .semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(KTEditorTheme.onAccent)
             .padding(.horizontal, 16).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTColor.accentGradient))
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTEditorTheme.accent))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -92,10 +93,10 @@ struct KTEditorQueryTab: View {
                 Image(systemName: "stop.fill").font(.system(size: 11))
                 Text("Stop").font(.jbMono(13, .regular))
             }
-            .foregroundStyle(KTColor.ink2)
+            .foregroundStyle(KTEditorTheme.Status.error)
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTEditorTheme.btnBg))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -110,33 +111,19 @@ struct KTEditorQueryTab: View {
             messageState(icon: "stop.circle", title: "Query cancelled", message: notice)
         } else if let result = vm.activeQueryTab?.result {
             VStack(spacing: 0) {
-                if result.truncated { truncationBanner }
                 KTDataGrid(result: result)
+                KTEditorStatusBar(result: result)
             }
         } else {
             messageState(icon: "terminal", title: "Run a query", message: "Type SQL above and press ⌘↩ to see results here.")
         }
     }
 
-    private var truncationBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12))
-                .foregroundStyle(KTIconTint.db.fg)
-            Text("Showing the first \(SQLAutoLimit.defaultMax) rows — result truncated (LIMIT applied). Add your own LIMIT or refine the query to see more.")
-                .font(.jbMono(12.5)).foregroundStyle(KTColor.ink2)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KTIconTint.db.bg)
-        .overlay(alignment: .bottom) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
-    }
-
     private func messageState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
-            Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
+            Image(systemName: icon).font(.system(size: 42, weight: .light)).foregroundStyle(KTEditorTheme.label3)
+            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTEditorTheme.label2)
+            Text(message).font(.jbMono(13)).foregroundStyle(KTEditorTheme.label2).multilineTextAlignment(.center)
         }
         .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -150,10 +137,10 @@ private struct SecondaryQueryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.jbMono(13, .medium))
-            .foregroundStyle(KTColor.ink2)
+            .foregroundStyle(KTEditorTheme.label)
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTEditorTheme.btnBg))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }

@@ -165,25 +165,26 @@ struct KTEditorERTab: View {
                 var x: CGFloat = 0
                 while x < size.width {
                     ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 1.4, height: 1.4)),
-                             with: .color(Color(hex: 0xE4E4EA)))
+                             with: .color(KTEditorTheme.separator))
                     x += spacing
                 }
                 y += spacing
             }
         }
         .drawingGroup()
-        .background(Color(hex: 0xFAFAFC))
+        .background(KTEditorTheme.content)
     }
 
     private var placeholder: some View {
         VStack(spacing: 6) {
             Image(systemName: "rectangle.connected.to.line.below")
-                .font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text("No tables").font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
+                .font(.system(size: 42, weight: .light)).foregroundStyle(KTEditorTheme.label3)
+            Text("No tables").font(.jbMono(16, .regular)).foregroundStyle(KTEditorTheme.label2)
             Text("Select a database with tables to see its ER diagram.")
-                .font(.jbMono(13)).foregroundStyle(KTColor.muted)
+                .font(.jbMono(13)).foregroundStyle(KTEditorTheme.label2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(KTEditorTheme.content)
     }
 
     private var toolbar: some View {
@@ -194,7 +195,7 @@ struct KTEditorERTab: View {
             Button { state.zoom(to: 1) } label: {
                 Text("\(Int((state.magnification * 100).rounded()))%")
                     .font(.jbMono(12, .medium).monospacedDigit())
-                    .foregroundStyle(KTColor.ink2)
+                    .foregroundStyle(KTEditorTheme.label)
                     .frame(minWidth: 44, minHeight: 26)
             }
             .buttonStyle(.plain)
@@ -208,20 +209,20 @@ struct KTEditorERTab: View {
             iconButton("doc.on.doc") { copyToClipboard() }
         }
         .padding(.horizontal, 6)
-        .background(Capsule().fill(Color.white))
-        .overlay(Capsule().stroke(KTColor.btnBorder, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        .background(Capsule().fill(KTEditorTheme.content2))
+        .overlay(Capsule().stroke(KTEditorTheme.separator, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
         .padding(16)
     }
 
     private var divider: some View {
-        Rectangle().fill(KTColor.sepFaint).frame(width: 0.5, height: 18)
+        Rectangle().fill(KTEditorTheme.separator).frame(width: 0.5, height: 18)
     }
 
     private func iconButton(_ symbol: String, active: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 12, weight: .regular))
-                .foregroundStyle(active ? KTColor.accent : KTColor.ink3)
+                .foregroundStyle(active ? KTEditorTheme.accent : KTEditorTheme.label2)
                 .frame(width: 26, height: 26).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -288,6 +289,6 @@ private struct ERExportCanvas: View {
             }
         }
         .frame(width: width, height: height)
-        .background(Color(hex: 0xFAFAFC))
+        .background(KTEditorTheme.content)
     }
 }

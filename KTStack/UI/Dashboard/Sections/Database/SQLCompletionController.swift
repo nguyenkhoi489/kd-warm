@@ -70,6 +70,7 @@ final class SQLCompletionController: NSObject, NSTableViewDataSource, NSTableVie
         panel.hidesOnDeactivate = true
         panel.backgroundColor = .clear
         panel.isOpaque = false
+        panel.appearance = NSAppearance(named: .darkAqua)
     }
 
     func update(items: [SQLCompletionItem], partial: String) {

@@ -14,17 +14,18 @@ struct KTEditorDataTab: View {
     var body: some View {
         VStack(spacing: 0) {
             contentHeader
-            Rectangle().fill(KTColor.sep).frame(height: 0.5)
+            Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5)
             if !vm.navigationStack.isEmpty {
                 KTBreadcrumbBar(trail: breadcrumbTrail, onBack: { Task { await vm.popNavigation(); selectedRow = nil } })
-                Rectangle().fill(KTColor.sep).frame(height: 0.5)
+                Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5)
             }
             if vm.isTableBrowse {
                 filterBar
-                Rectangle().fill(KTColor.sep).frame(height: 0.5)
+                Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5)
             }
             body(for: vm.selectedTable)
         }
+        .background(KTEditorTheme.content)
         .onAppear { if isActive { reloadIfNeeded() } }
         .task(id: EditorTabTaskKey(value: vm.selectedTable?.name, isActive: isActive)) {
             guard isActive else { return }
@@ -48,10 +49,10 @@ struct KTEditorDataTab: View {
                     Image(systemName: "line.3.horizontal.decrease").font(.system(size: 10.5, weight: .semibold))
                     Text("Filter").font(.jbMono(12, .medium))
                 }
-                .foregroundStyle(KTColor.ink2)
+                .foregroundStyle(KTEditorTheme.label)
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(KTEditorTheme.btnBg))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -70,7 +71,7 @@ struct KTEditorDataTab: View {
                 Button("Clear") { Task { await vm.clearFiltersAndSort(); selectedRow = nil } }
                     .buttonStyle(.plain)
                     .font(.jbMono(12, .medium))
-                    .foregroundStyle(KTColor.accent)
+                    .foregroundStyle(KTEditorTheme.accent)
             }
             Spacer()
         }
@@ -79,18 +80,18 @@ struct KTEditorDataTab: View {
 
     private func filterChip(_ condition: FilterCondition, at index: Int) -> some View {
         HStack(spacing: 5) {
-            Text(chipLabel(condition)).font(.jbMono(11.5)).foregroundStyle(KTColor.ink2).lineLimit(1)
+            Text(chipLabel(condition)).font(.jbMono(11.5)).foregroundStyle(KTEditorTheme.label).lineLimit(1)
             Button {
                 var next = vm.activeFilters
                 next.remove(at: index)
                 Task { await vm.applyFilters(next) }
             } label: {
-                Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundStyle(KTColor.muted)
+                Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundStyle(KTEditorTheme.label2)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(KTColor.pillBg))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(KTEditorTheme.pillBg))
     }
 
     private func chipLabel(_ c: FilterCondition) -> String {
@@ -140,7 +141,7 @@ struct KTEditorDataTab: View {
                     footer(result)
                 }
                 if showDetailPanel {
-                    Rectangle().fill(KTColor.sep).frame(width: 0.5)
+                    Rectangle().fill(KTEditorTheme.separator).frame(width: 0.5)
                     KTRowDetailPanel(
                         columns: result.columns,
                         row: selectedRow.flatMap { $0 < result.rows.count ? result.rows[$0] : nil },
@@ -153,7 +154,7 @@ struct KTEditorDataTab: View {
             VStack(spacing: 10) {
                 ProgressView()
                 if let label = vm.currentActivityLabel {
-                    Text(label).font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
+                    Text(label).font(.jbMono(12.5)).foregroundStyle(KTEditorTheme.label2)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -164,17 +165,17 @@ struct KTEditorDataTab: View {
         HStack(spacing: 10) {
             if let table = vm.selectedTable {
                 Image(systemName: table.isView ? "eye" : "tablecells")
-                    .font(.system(size: 14)).foregroundStyle(Color(hex: 0x86868F))
+                    .font(.system(size: 14)).foregroundStyle(KTEditorTheme.label2)
                 Text(table.name)
                     .font(.jbMono(14, .regular))
-                    .foregroundStyle(KTColor.ink)
+                    .foregroundStyle(KTEditorTheme.label)
                 if let result = vm.result, vm.isTableBrowse {
                     Text("· \(rowCountLabel(result))")
-                        .font(.jbMono(12.5)).foregroundStyle(KTColor.muted)
+                        .font(.jbMono(12.5)).foregroundStyle(KTEditorTheme.label2)
                 }
                 Spacer()
                 if vm.isTableBrowse, !vm.canEditRows, let reason = vm.editDisabledReason {
-                    Text(reason).font(.jbMono(11.5)).foregroundStyle(KTColor.muted).lineLimit(1)
+                    Text(reason).font(.jbMono(11.5)).foregroundStyle(KTEditorTheme.label2).lineLimit(1)
                 }
                 if vm.isTableBrowse {
                     CSVExportButton(defaultName: table.name)
@@ -184,7 +185,7 @@ struct KTEditorDataTab: View {
                     rowActions
                 }
             } else {
-                Text("Select a table to begin").font(.jbMono(13)).foregroundStyle(KTColor.muted)
+                Text("Select a table to begin").font(.jbMono(13)).foregroundStyle(KTEditorTheme.label2)
                 Spacer()
             }
         }
@@ -196,7 +197,7 @@ struct KTEditorDataTab: View {
         Button { showDetailPanel.toggle() } label: {
             Image(systemName: "sidebar.trailing")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(showDetailPanel ? KTColor.accent : Color(hex: 0x86868F))
+                .foregroundStyle(showDetailPanel ? KTEditorTheme.accent : KTEditorTheme.label2)
                 .frame(width: 28, height: 26)
                 .contentShape(Rectangle())
         }
@@ -206,17 +207,17 @@ struct KTEditorDataTab: View {
     private var rowActions: some View {
         HStack(spacing: 8) {
             if selectedRow != nil {
-                iconButton("trash", tint: KTColor.danger) { pendingDelete = selectedRow }
+                iconButton("trash", tint: KTEditorTheme.Status.error) { pendingDelete = selectedRow }
             }
             Button { editor = .insert } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus").font(.system(size: 11, weight: .bold))
                     Text("Add Row").font(.jbMono(12.5, .medium))
                 }
-                .foregroundStyle(KTColor.ink2)
+                .foregroundStyle(KTEditorTheme.label)
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(KTColor.btnBorder, lineWidth: 0.5))
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(KTEditorTheme.btnBg))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -224,7 +225,7 @@ struct KTEditorDataTab: View {
         }
     }
 
-    private func iconButton(_ symbol: String, tint: Color = Color(hex: 0x86868F),
+    private func iconButton(_ symbol: String, tint: Color = KTEditorTheme.label2,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -249,25 +250,26 @@ struct KTEditorDataTab: View {
     private func footer(_ result: QueryResult) -> some View {
         HStack(spacing: 8) {
             Text("\(result.rowCount) rows loaded\(vm.hasMorePages ? " · scroll for more" : "")")
-                .font(.jbMono(12)).foregroundStyle(KTColor.muted)
+                .font(.jbMono(12)).foregroundStyle(KTEditorTheme.label2)
             if vm.isFetchingMore {
                 ProgressView().controlSize(.small).scaleEffect(0.7)
             }
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .overlay(alignment: .top) { Rectangle().fill(KTColor.sep).frame(height: 0.5) }
+        .background(KTEditorTheme.content2)
+        .overlay(alignment: .top) { Rectangle().fill(KTEditorTheme.separator).frame(height: 0.5) }
     }
 
     private var emptyState: some View {
         VStack(spacing: 0) {
             Image(systemName: "tablecells")
-                .font(.system(size: 60, weight: .ultraLight)).foregroundStyle(KTColor.faint)
+                .font(.system(size: 60, weight: .ultraLight)).foregroundStyle(KTEditorTheme.label3)
             Text("No table selected")
-                .font(.jbMono(20, .bold)).foregroundStyle(Color(hex: 0x86868F))
+                .font(.jbMono(20, .bold)).foregroundStyle(KTEditorTheme.label2)
                 .padding(.top, 20)
             Text("Pick a table in the schema tree to browse its rows.")
-                .font(.jbMono(14)).foregroundStyle(Color(hex: 0xA8A8B0))
+                .font(.jbMono(14)).foregroundStyle(KTEditorTheme.label3)
                 .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -275,9 +277,9 @@ struct KTEditorDataTab: View {
 
     private func messageState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 42, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTColor.ink3)
-            Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
+            Image(systemName: icon).font(.system(size: 42, weight: .light)).foregroundStyle(KTEditorTheme.label3)
+            Text(title).font(.jbMono(16, .regular)).foregroundStyle(KTEditorTheme.label2)
+            Text(message).font(.jbMono(13)).foregroundStyle(KTEditorTheme.label2).multilineTextAlignment(.center)
         }
         .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
     }

@@ -4,10 +4,10 @@ final class SQLSyntaxHighlighter: NSObject, NSTextStorageDelegate {
 
     var keywords: Set<String> = []
 
-    private let keywordColor = NSColor.systemPink
-    private let stringColor = NSColor.systemRed
-    private let numberColor = NSColor.systemBlue
-    private let commentColor = NSColor.systemGreen
+    private let keywordColor = NSColor(editorHex: 0xFF7AB2)
+    private let stringColor = NSColor(editorHex: 0x6BD968)
+    private let numberColor = NSColor(editorHex: 0xFFB454)
+    private let commentColor = NSColor(editorHex: 0x6C7086)
 
     private static let wordPattern = try? NSRegularExpression(pattern: "[A-Za-z_][A-Za-z0-9_]*")
     private static let numberPattern = try? NSRegularExpression(pattern: "\\b\\d+(?:\\.\\d+)?\\b")
@@ -50,5 +50,14 @@ final class SQLSyntaxHighlighter: NSObject, NSTextStorageDelegate {
             guard let match else { return }
             storage.addAttribute(.foregroundColor, value: color, range: match.range)
         }
+    }
+}
+
+private extension NSColor {
+    convenience init(editorHex hex: UInt32) {
+        self.init(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255,
+                  alpha: 1)
     }
 }

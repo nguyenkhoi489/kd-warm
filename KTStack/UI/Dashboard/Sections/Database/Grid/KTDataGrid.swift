@@ -19,8 +19,8 @@ struct KTDataGrid: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let coordinator = context.coordinator
         let table = KTGridTableView()
-        table.usesAlternatingRowBackgroundColors = true
-        table.backgroundColor = .white
+        table.usesAlternatingRowBackgroundColors = false
+        table.backgroundColor = Coordinator.gridBackground
         table.gridStyleMask = []
         table.allowsColumnResizing = true
         table.allowsColumnReordering = false
@@ -45,7 +45,7 @@ struct KTDataGrid: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.drawsBackground = true
-        scroll.backgroundColor = .white
+        scroll.backgroundColor = Coordinator.gridBackground
         scroll.contentView.postsBoundsChangedNotifications = true
         coordinator.observe(scroll)
         return scroll
@@ -90,10 +90,20 @@ struct KTDataGrid: NSViewRepresentable {
         static let cellFont: NSFont =
             NSFont(name: "JetBrainsMono-Medium", size: 12.5)
             ?? .monospacedSystemFont(ofSize: 12, weight: .regular)
-        static let textColor = NSColor(hexValue: 0x42424C)
-        static let nullColor = NSColor(hexValue: 0xC0C0C8)
-        static let editingColor = NSColor(hexValue: 0xFFF6CC)
-        static let foreignKeyColor = NSColor(hexValue: 0x2F6BFF)
+        static let gridBackground = NSColor(hexValue: 0x252527)
+        static let textColor = NSColor(white: 0.85, alpha: 1)
+        static let nullColor = NSColor(hexValue: 0x8E8E93)
+        static let editingColor = NSColor(hexValue: 0x143A5C)
+        static let editingTextColor = NSColor.white
+        static let foreignKeyColor = NSColor(hexValue: 0x0A84FF)
+        static let numberColor = NSColor(hexValue: 0xFFB454)
+
+        static func isNumeric(_ cell: Cell) -> Bool {
+            switch cell {
+            case .int, .double: return true
+            default: return false
+            }
+        }
 
         init(result: QueryResult) { self.result = result }
 
@@ -238,14 +248,23 @@ struct KTDataGrid: NSViewRepresentable {
             field.delegate = self
             field.isEditable = false
             field.drawsBackground = false
-            if let text = result.rows[row][columnIndex].displayText {
+            let cell = result.rows[row][columnIndex]
+            if let text = cell.displayText {
                 field.stringValue = text
-                field.textColor = foreignKeyColumns.contains(result.columns[columnIndex].name)
-                    ? Self.foreignKeyColor
-                    : Self.textColor
+                if foreignKeyColumns.contains(result.columns[columnIndex].name) {
+                    field.textColor = Self.foreignKeyColor
+                    field.alignment = .left
+                } else if Self.isNumeric(cell) {
+                    field.textColor = Self.numberColor
+                    field.alignment = .right
+                } else {
+                    field.textColor = Self.textColor
+                    field.alignment = .left
+                }
             } else {
                 field.stringValue = "NULL"
                 field.textColor = Self.nullColor
+                field.alignment = .left
             }
             return field
         }
@@ -284,7 +303,7 @@ struct KTDataGrid: NSViewRepresentable {
             editingField = field
             let cell = result.rows[row][column]
             field.stringValue = cell.displayText ?? ""
-            field.textColor = Self.textColor
+            field.textColor = Self.editingTextColor
             field.isEditable = true
             field.drawsBackground = true
             field.backgroundColor = Self.editingColor

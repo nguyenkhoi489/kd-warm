@@ -10,7 +10,7 @@ struct KTBreadcrumbBar: View {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KTColor.accent)
+                    .foregroundStyle(KTEditorTheme.accent)
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
@@ -20,16 +20,16 @@ struct KTBreadcrumbBar: View {
                 if index > 0 {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(KTColor.faint)
+                        .foregroundStyle(KTEditorTheme.label3)
                 }
                 Text(name)
                     .font(.jbMono(12, index == trail.count - 1 ? .medium : .regular))
-                    .foregroundStyle(index == trail.count - 1 ? KTColor.ink2 : KTColor.muted)
+                    .foregroundStyle(index == trail.count - 1 ? KTEditorTheme.label : KTEditorTheme.label2)
                     .lineLimit(1)
             }
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 7)
-        .background(KTColor.accentSoft)
+        .background(KTEditorTheme.accentSoft)
     }
 }

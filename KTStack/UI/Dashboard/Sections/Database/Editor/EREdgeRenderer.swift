@@ -11,7 +11,7 @@ enum EREdgeRenderer {
     static func drawEdges(context: GraphicsContext,
                           edges: [ERSchemaEdge],
                           rects: [String: CGRect]) {
-        let strokeColor = Color(hex: 0xB6BECE)
+        let strokeColor = KTEditorTheme.Status.stopped
         let strokeStyle = StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
 
         let resolved: [ResolvedEdge] = edges.compactMap { edge in
