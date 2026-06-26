@@ -15,6 +15,7 @@ struct KTEditorTableSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            databaseSwitcher
             header
             searchField
             tableList
@@ -22,6 +23,45 @@ struct KTEditorTableSidebar: View {
         .frame(width: 288)
         .background(KTEditorTheme.sidebar)
         .overlay(alignment: .trailing) { Rectangle().fill(KTEditorTheme.separator).frame(width: 0.5) }
+    }
+
+    private var databaseSwitcher: some View {
+        Menu {
+            if vm.databases.isEmpty {
+                Text("No databases")
+            } else {
+                ForEach(vm.databases) { database in
+                    Button {
+                        guard database.name != vm.selectedDatabase else { return }
+                        Task { await vm.select(database: database.name) }
+                    } label: {
+                        if database.name == vm.selectedDatabase {
+                            Label(database.name, systemImage: "checkmark")
+                        } else {
+                            Text(database.name)
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "cylinder.split.1x2").font(.system(size: 12)).foregroundStyle(KTEditorTheme.label3)
+                Text(vm.selectedDatabase ?? "Select database")
+                    .font(.jbMono(13, .regular))
+                    .foregroundStyle(vm.selectedDatabase == nil ? KTEditorTheme.label3 : KTEditorTheme.label)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 10)).foregroundStyle(KTEditorTheme.label3)
+            }
+            .padding(.horizontal, 11).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(KTEditorTheme.fieldBg))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KTEditorTheme.separator, lineWidth: 0.5))
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .disabled(vm.connection != .connected || vm.databases.isEmpty)
+        .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 4)
     }
 
     private var header: some View {
