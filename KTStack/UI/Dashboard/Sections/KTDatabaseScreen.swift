@@ -7,19 +7,22 @@ struct KTDatabaseScreen: View {
     @EnvironmentObject private var connectionStore: ConnectionStore
     @EnvironmentObject private var services: ServiceManager
     @EnvironmentObject private var overlay: KTOverlayCenter
+    @ObservedObject var nav: DashboardNavigation
 
     let onOpenEditor: () -> Void
 
-    enum Tab: Hashable { case databases, backups }
+    enum Tab: Hashable { case servers, backups }
 
-    @State private var tab: Tab = .databases
-    @State private var databaseSearch = ""
+    @StateObject private var reachability = ServerReachabilityService()
+    @State private var tab: Tab = .servers
+    @State private var serverSearch = ""
     @State private var session = BackupSession.managed()
     @State private var backupSets: [BackupSet] = []
     @State private var reloadGeneration = 0
     @State private var showImportExport = false
     @State private var restoringSet: BackupSet?
     @State private var backingUpAll = false
+    @State private var opening = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,42 +38,25 @@ struct KTDatabaseScreen: View {
                 _ = await vm.restoreBackup(set, database: db, target: target, session: session)
             }
         }
-        .task { await autoConnectIfNeeded(); await reloadBackups() }
-    }
-
-    private var canDropDatabase: Bool {
-        vm.connection == .connected && !vm.isReadOnlyConnection && vm.canDropDatabase
-    }
-
-    private func confirmDropDatabase(_ name: String) {
-        overlay.confirm(title: "Drop database?",
-                        message: "Permanently delete database “\(name)” and all of its tables. This cannot be undone.",
-                        okLabel: "Drop", danger: true) {
-            Task {
-                vm.prepareDropDatabase(name)
-                if await vm.confirmDropDatabase(name) {
-                    overlay.toast("Dropped “\(name)”")
-                } else if let error = vm.ddlError {
-                    overlay.toast(error)
-                }
-            }
+        .task {
+            reachability.configure(profiles: { connectionStore.allProfiles },
+                                   managedRunning: { managedEngineRunning($0) })
+            reachability.start()
+            await reloadBackups()
         }
-    }
-
-    private func confirmDeleteBackup(_ set: BackupSet) {
-        overlay.confirm(title: "Delete backup?",
-                        message: "Permanently delete this backup. This cannot be undone.",
-                        okLabel: "Delete", danger: true) {
-            vm.deleteBackup(set, session: session)
-            Task { await reloadBackups() }
-            overlay.toast("Backup deleted")
+        .onChange(of: nav.activeItem) { item in
+            if item == .database { reachability.start() } else { reachability.stop() }
         }
+        .onDisappear { reachability.stop() }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Text("Database").font(KTType.screenTitle).tracking(KTType.screenTitleTracking).foregroundStyle(KTColor.ink)
-            KTPill(text: "\(vm.databases.count) databases")
+            KTPill(text: "\(connectionStore.allProfiles.count) connections")
+            if vm.connection == .connected, let active = vm.selectedProfile {
+                KTBadge(text: "Active · \(active.name)", tint: KTEngineTint.of(active.kind.rawValue), radius: 6)
+            }
             Spacer()
             KTButton(title: "Connect", systemImage: "link", kind: .secondary) { overlay.connectPresented = true }
             KTButton(title: "Import", systemImage: "square.and.arrow.down", kind: .secondary) { showImportExport = true }
@@ -84,57 +70,55 @@ struct KTDatabaseScreen: View {
     }
 
     private var tabBar: some View {
-        KTSegmentedTabs(items: [.init(value: .databases, label: "Databases"), .init(value: .backups, label: "Backups")],
+        KTSegmentedTabs(items: [.init(value: .servers, label: "Servers"), .init(value: .backups, label: "Backups")],
                         selection: $tab)
     }
 
     @ViewBuilder
     private var content: some View {
         switch tab {
-        case .databases: databasesTab
+        case .servers: serversTab
         case .backups: backupsTab
         }
     }
 
     @ViewBuilder
-    private var databasesTab: some View {
-        if vm.connection == .connected {
-            if vm.databases.isEmpty {
-                emptyState(icon: "cylinder.split.1x2", title: "No databases", message: "Create one to get started.")
-            } else {
-                VStack(spacing: 14) {
-                    KTSearchField(text: $databaseSearch, placeholder: "Search databases…")
-                    let matches = filteredDatabases
-                    if matches.isEmpty {
-                        emptyState(icon: "magnifyingglass", title: "No matches",
-                                   message: "No database matches “\(databaseSearch)”.")
-                    } else {
-                        ScrollView { KTListContainer { databaseRows(matches) } }
-                    }
+    private var serversTab: some View {
+        if connectionStore.allProfiles.isEmpty {
+            emptyState(icon: "cylinder.split.1x2", title: "No connections yet",
+                       message: "Add a database server to browse it.")
+        } else {
+            VStack(spacing: 14) {
+                KTSearchField(text: $serverSearch, placeholder: "Search connections…")
+                let matches = filteredProfiles
+                if matches.isEmpty {
+                    emptyState(icon: "magnifyingglass", title: "No matches",
+                               message: "No connection matches “\(serverSearch)”.")
+                } else {
+                    ScrollView { KTListContainer { serverRows(matches) } }
                 }
             }
-        } else {
-            connectionGate
         }
     }
 
-    private var filteredDatabases: [DatabaseInfo] {
-        let query = databaseSearch.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return vm.databases }
-        return vm.databases.filter { $0.name.range(of: query, options: .caseInsensitive) != nil }
+    private var filteredProfiles: [ConnectionProfile] {
+        let query = serverSearch.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return connectionStore.allProfiles }
+        return connectionStore.allProfiles.filter {
+            $0.name.range(of: query, options: .caseInsensitive) != nil
+                || $0.host.range(of: query, options: .caseInsensitive) != nil
+        }
     }
 
-    private func databaseRows(_ databases: [DatabaseInfo]) -> some View {
-        let kind = vm.selectedProfile?.kind ?? .mysql
-        return VStack(spacing: 0) {
-            ForEach(Array(databases.enumerated()), id: \.element.id) { index, db in
-                KTDatabaseRow(name: db.name, kind: kind,
-                              onOpen: { open(db.name) },
-                              onBackup: { backup(db.name) },
-                              onExport: { exportSQL(db.name) },
-                              onRestore: { tab = .backups },
-                              onDrop: canDropDatabase ? { confirmDropDatabase(db.name) } : nil)
-                if index < databases.count - 1 {
+    private func serverRows(_ profiles: [ConnectionProfile]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(profiles.enumerated()), id: \.element.id) { index, profile in
+                KTServerRow(profile: profile,
+                            status: reachability.currentStatus(for: profile.id),
+                            onOpen: { open(profile) },
+                            onBackup: { backupServer(profile) },
+                            onRestore: { tab = .backups })
+                if index < profiles.count - 1 {
                     Rectangle().fill(KTColor.sepFaint).frame(height: 0.5).padding(.leading, 18)
                 }
             }
@@ -174,53 +158,57 @@ struct KTDatabaseScreen: View {
         }
     }
 
-    private var connectionGate: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "cylinder.split.1x2").font(.system(size: 46, weight: .light)).foregroundStyle(KTColor.faint)
-            Text(gateTitle).font(.jbMono(17, .regular)).foregroundStyle(KTColor.ink3)
-            Text(gateMessage).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
-            KTButton(title: "Connect", systemImage: "link", kind: .primary) { overlay.connectPresented = true }.padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var gateTitle: String {
-        if case .connecting = vm.connection { return "Connecting…" }
-        return "Connect to a database"
-    }
-
-    private var gateMessage: String {
-        if case .failed(let error) = vm.connection { return error.message }
-        return "Choose an engine and enter your connection details to browse databases."
-    }
-
     private func emptyState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 46, weight: .light)).foregroundStyle(KTColor.faint)
             Text(title).font(.jbMono(17, .regular)).foregroundStyle(KTColor.ink3)
-            Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted)
+            Text(message).font(.jbMono(13)).foregroundStyle(KTColor.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func autoConnectIfNeeded() async {
-        guard vm.selectedProfile == nil, vm.connection == .idle,
-              let profile = connectionStore.allProfiles.first else { return }
-        await vm.select(profile: profile)
+    private func managedEngineRunning(_ kind: DatabaseKind) -> Bool {
+        let serviceKind: ServiceKind
+        switch kind {
+        case .mysql:    serviceKind = .mysql
+        case .postgres: serviceKind = .postgres
+        case .mongodb:  serviceKind = .mongodb
+        case .sqlite:   return false
+        }
+        return services.snapshots.first { $0.kind == serviceKind }?.status == .running
     }
 
-    private func open(_ name: String) {
+    private func open(_ profile: ConnectionProfile) {
+        guard !opening else { return }
+        opening = true
         Task {
-            await vm.select(database: name)
+            await vm.select(profile: profile)
+            defer { opening = false }
+            guard vm.connection == .connected else {
+                if case .failed(let error) = vm.connection { overlay.toast(error.message) }
+                return
+            }
+            if let database = vm.resolvePreferredDatabase(for: profile) {
+                await vm.select(database: database)
+            } else {
+                overlay.toast("Connected to “\(profile.name)” — no databases found")
+            }
             onOpenEditor()
         }
     }
 
-    private func backup(_ name: String) {
+    private func backupServer(_ profile: ConnectionProfile) {
         Task {
-            let set = await vm.backupDatabase(name, session: session)
+            if vm.selectedProfile?.id != profile.id || vm.connection != .connected {
+                await vm.select(profile: profile)
+            }
+            guard vm.connection == .connected else {
+                if case .failed(let error) = vm.connection { overlay.toast(error.message) }
+                return
+            }
+            let set = await vm.backupAllDatabases(session: session)
             await reloadBackups()
-            if set != nil { overlay.toast("Backed up “\(name)”") }
+            if set != nil { overlay.toast("Backed up “\(profile.name)”") }
         }
     }
 
@@ -235,10 +223,13 @@ struct KTDatabaseScreen: View {
         }
     }
 
-    private func exportSQL(_ name: String) {
-        Task {
-            await vm.select(database: name)
-            showImportExport = true
+    private func confirmDeleteBackup(_ set: BackupSet) {
+        overlay.confirm(title: "Delete backup?",
+                        message: "Permanently delete this backup. This cannot be undone.",
+                        okLabel: "Delete", danger: true) {
+            vm.deleteBackup(set, session: session)
+            Task { await reloadBackups() }
+            overlay.toast("Backup deleted")
         }
     }
 

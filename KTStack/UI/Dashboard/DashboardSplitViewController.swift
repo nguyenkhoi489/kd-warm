@@ -204,7 +204,7 @@ final class DetailContainerViewController: NSViewController {
         case .about:
             AboutSettingsView().navigationTitle("About")
         case .database:
-            KTDatabaseScreen(onOpenEditor: { [env] in
+            KTDatabaseScreen(nav: nav, onOpenEditor: { [env] in
                 DatabaseEditorWindowController.shared.present(env: env)
             })
         case .dumps:
