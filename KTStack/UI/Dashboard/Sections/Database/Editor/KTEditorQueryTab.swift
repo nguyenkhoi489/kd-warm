@@ -20,6 +20,7 @@ struct KTEditorQueryTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            QueryTabBar()
             editorPanel
             results
         }
@@ -75,6 +76,9 @@ struct KTEditorQueryTab: View {
             HStack(spacing: 7) {
                 Image(systemName: "play.fill").font(.system(size: 11))
                 Text("Run Query").font(.jbMono(13, .semibold))
+                Text("⌘↵").font(.system(size: 10))
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(KTEditorTheme.onAccent.opacity(0.4), lineWidth: 1))
             }
             .foregroundStyle(KTEditorTheme.onAccent)
             .padding(.horizontal, 16).padding(.vertical, 8)
