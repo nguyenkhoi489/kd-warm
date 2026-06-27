@@ -9,8 +9,6 @@ struct KTDatabaseScreen: View {
     @EnvironmentObject private var overlay: KTOverlayCenter
     @ObservedObject var nav: DashboardNavigation
 
-    let onOpenEditor: () -> Void
-
     enum Tab: Hashable { case servers, backups }
 
     @StateObject private var reachability = ServerReachabilityService()
@@ -127,7 +125,6 @@ struct KTDatabaseScreen: View {
                             status: reachability.currentStatus(for: profile.id),
                             databaseCount: databaseCount(for: profile),
                             onOpen: { open(profile) },
-                            onOpenV2: { DatabaseV2WindowController.shared.present(profile: profile) },
                             onBackup: { backupServer(profile) },
                             onRestore: { tab = .backups })
             }
@@ -213,7 +210,7 @@ struct KTDatabaseScreen: View {
             } else {
                 overlay.toast("Connected to “\(profile.name)” — no databases found")
             }
-            onOpenEditor()
+            DatabaseV2WindowController.shared.present(profile: profile)
         }
     }
 

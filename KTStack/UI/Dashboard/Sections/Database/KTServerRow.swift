@@ -17,7 +17,6 @@ struct KTServerRow: View {
     let status: ServerStatus
     let databaseCount: Int?
     let onOpen: () -> Void
-    let onOpenV2: () -> Void
     let onBackup: () -> Void
     let onRestore: () -> Void
 
@@ -49,7 +48,6 @@ struct KTServerRow: View {
             }
             Spacer(minLength: 8)
             KTButton(title: "Open", kind: .primary, action: onOpen).disabled(!isOnline)
-            KTButton(title: "v2", kind: .secondary, action: onOpenV2).disabled(!isOnline)
             ghostIcon("tray.and.arrow.down", help: "Backup now", action: onBackup)
                 .disabled(!isOnline)
                 .opacity(isOnline ? 1 : 0.4)

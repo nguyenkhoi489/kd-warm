@@ -31,7 +31,7 @@ final class DatabaseV2WindowController: NSObject, NSWindowDelegate {
         window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.title = "SQL Editor v2"
+        window.title = "SQL Editor"
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentMinSize = NSSize(width: 900, height: 560)
