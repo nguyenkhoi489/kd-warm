@@ -106,37 +106,38 @@ struct V2TableSidebar: View {
     }
 
     private var databaseSwitcher: some View {
-        Menu {
-            ForEach(databases, id: \.name) { db in
-                Button {
-                    onSelectDatabase(db.name)
-                } label: {
-                    if db.name == schemaName {
-                        Label(db.name, systemImage: "checkmark")
-                    } else {
-                        Text(db.name)
+        HStack(spacing: 7) {
+            Image(systemName: "cylinder.split.1x2")
+                .foregroundStyle(KTEditorTheme.switcherIcon)
+            Text(schemaName.isEmpty ? "—" : schemaName)
+                .font(.jbMono(12.5, .semibold))
+                .foregroundStyle(KTEditorTheme.label)
+            Spacer()
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 10))
+                .foregroundStyle(KTEditorTheme.label3)
+        }
+        .contentShape(Rectangle())
+        .overlay {
+            Menu {
+                ForEach(databases, id: \.name) { db in
+                    Button {
+                        onSelectDatabase(db.name)
+                    } label: {
+                        if db.name == schemaName {
+                            Label(db.name, systemImage: "checkmark")
+                        } else {
+                            Text(db.name)
+                        }
                     }
                 }
+            } label: {
+                Rectangle().fill(Color.clear).contentShape(Rectangle())
             }
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "cylinder.split.1x2")
-                    .foregroundStyle(KTEditorTheme.switcherIcon)
-                Text(schemaName.isEmpty ? "—" : schemaName)
-                    .font(.jbMono(12.5, .semibold))
-                    .foregroundStyle(KTEditorTheme.label)
-                Spacer()
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10))
-                    .foregroundStyle(KTEditorTheme.label3)
-            }
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .disabled(databases.isEmpty)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize(horizontal: false, vertical: true)
-        .disabled(databases.isEmpty)
     }
 
     private var filterField: some View {
