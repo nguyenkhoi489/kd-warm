@@ -256,7 +256,7 @@ struct DatabaseV2Root: View {
             Spacer()
             V2ConnectionPill(state: vm.connectionState)
         }
-        .padding(.leading, 78)
+        .padding(.leading, 14)
         .padding(.trailing, 14)
         .frame(height: 44)
         .background(
