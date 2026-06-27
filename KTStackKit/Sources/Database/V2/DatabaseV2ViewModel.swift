@@ -38,6 +38,7 @@ public final class DatabaseV2ViewModel: ObservableObject {
     @Published public var queryTabs: [V2QueryTab]
     @Published public internal(set) var activeQueryTabID: UUID?
     public private(set) var connectionProfileID: String?
+    @Published public private(set) var connectionKind: DatabaseKind?
 
     public var schemaName: String { selectedDatabase ?? "" }
     public let pageSize: Int = 200
@@ -73,6 +74,7 @@ public final class DatabaseV2ViewModel: ObservableObject {
         driver = nil
         connectionState = .connecting
         connectionProfileID = profile.id.uuidString
+        connectionKind = profile.kind
         databases = []
         tables = []
         selectedDatabase = nil

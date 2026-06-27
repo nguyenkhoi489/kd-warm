@@ -100,14 +100,12 @@ struct V2QueryTabView: View {
     }
 
     private var sqlEditor: some View {
-        TextEditor(text: activeTextBinding)
+        SQLCodeEditor(text: activeTextBinding,
+                      catalog: vm.schemaCatalog,
+                      keywords: SQLKeywords.forKind(vm.connectionKind ?? .mysql))
             .id(vm.activeQueryTabID)
-            .font(.jbMono(12.5))
-            .foregroundStyle(KTEditorTheme.label)
-            .scrollContentBackground(.hidden)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
             .frame(height: 132)
+            .padding(6)
             .background(KTEditorTheme.content)
             .overlay(
                 RoundedRectangle(cornerRadius: 11)
@@ -115,6 +113,7 @@ struct V2QueryTabView: View {
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
+            .task(id: vm.selectedDatabase) { await vm.loadDiagram() }
     }
 
     @ViewBuilder
