@@ -96,7 +96,6 @@ assets/
 
 # External repos for study/reference
 external/
-guide/
 # Git worktrees (local development only)
 worktrees/
 
@@ -145,3 +144,5 @@ log/
 
 # Built distributable disk images (use scripts/release/build-dmg.sh)
 *.dmg
+
+feature.md
