@@ -29,16 +29,19 @@ public struct TunnelSession: Identifiable, Sendable {
     public let secure: Bool
     public var status: TunnelStatus
     public let startedAt: Date
+    public let expiresAt: Date?
 
     public var id: UUID { siteID }
 
     public init(siteID: UUID, domain: String, secure: Bool,
-                status: TunnelStatus = .starting, startedAt: Date = Date()) {
+                status: TunnelStatus = .starting, startedAt: Date = Date(),
+                expiresAt: Date? = nil) {
         self.siteID = siteID
         self.domain = domain
         self.secure = secure
         self.status = status
         self.startedAt = startedAt
+        self.expiresAt = expiresAt
     }
 }
 

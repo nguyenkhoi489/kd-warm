@@ -5,13 +5,28 @@ import KTStackKit
 struct KTSiteShareControls: View {
     var shareStarting: Bool
     var shareURL: URL?
+    var shareExpiresAt: Date?
     let onToggleShare: (Bool) -> Void
+
+    private static let expiryFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 
     var body: some View {
         HStack(spacing: 2) {
             if shareStarting {
                 ProgressView().controlSize(.small).frame(width: 28, height: 26)
             } else if let shareURL {
+                if let shareExpiresAt {
+                    Text("Expires \(Self.expiryFormatter.string(from: shareExpiresAt))")
+                        .font(.jbMono(11))
+                        .foregroundStyle(KTColor.muted)
+                        .ktTip("Tunnel closes automatically at this time")
+                        .padding(.trailing, 4)
+                }
                 iconButton("doc.on.doc", help: "Copy tunnel URL", tint: KTColor.ink3) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(shareURL.absoluteString, forType: .string)

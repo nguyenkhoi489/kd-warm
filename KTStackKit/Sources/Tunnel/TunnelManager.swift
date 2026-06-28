@@ -47,8 +47,11 @@ public final class TunnelManager: ObservableObject {
     public func start(site: Site) {
         guard !isSharing(site.id), startTasks[site.id] == nil else { return }
         tearDown(site.id)
+        let startedAt = Date()
         sessions[site.id] = TunnelSession(siteID: site.id, domain: site.domain,
-                                          secure: site.secure, status: .starting)
+                                          secure: site.secure, status: .starting,
+                                          startedAt: startedAt,
+                                          expiresAt: ttl > 0 ? startedAt.addingTimeInterval(ttl) : nil)
         let siteID = site.id
         startTasks[siteID] = Task { [weak self] in
             await self?.runStart(site: site)

@@ -148,6 +148,7 @@ private struct KTSitesContent: View {
                 KTSiteListRow(site: site, availableVersions: server.availableVersions,
                               canOpen: server.isRunning, isSharing: isSharing(site),
                               shareStarting: isStartingShare(site), shareURL: shareURL(site),
+                              shareExpiresAt: shareExpiresAt(site),
                               onOpen: { KTSiteActions.openInBrowser(site) },
                               onSetVersion: { registry.setPHPVersion(site, to: $0) },
                               onSetSecure: { server.setSiteSecure(site, $0) },
@@ -171,6 +172,7 @@ private struct KTSitesContent: View {
                 KTSiteGridCard(site: site, availableVersions: server.availableVersions,
                                canOpen: server.isRunning, isSharing: isSharing(site),
                                shareStarting: isStartingShare(site), shareURL: shareURL(site),
+                               shareExpiresAt: shareExpiresAt(site),
                                onOpen: { KTSiteActions.openInBrowser(site) },
                                onSetVersion: { registry.setPHPVersion(site, to: $0) },
                                onSetSecure: { server.setSiteSecure(site, $0) },
@@ -199,6 +201,11 @@ private struct KTSitesContent: View {
 
     private func shareURL(_ site: Site) -> URL? {
         tunnels.session(site.id)?.status.publicURL
+    }
+
+    private func shareExpiresAt(_ site: Site) -> Date? {
+        guard let session = tunnels.session(site.id), session.status.publicURL != nil else { return nil }
+        return session.expiresAt
     }
 
     private func isStartingShare(_ site: Site) -> Bool {

@@ -8,6 +8,7 @@ struct KTSiteGridCard: View {
     let isSharing: Bool
     var shareStarting: Bool = false
     var shareURL: URL? = nil
+    var shareExpiresAt: Date? = nil
     let onOpen: () -> Void
     let onSetVersion: (String) -> Void
     let onSetSecure: (Bool) -> Void
@@ -50,7 +51,8 @@ struct KTSiteGridCard: View {
                 KTButton(title: "Open", kind: .secondary, action: onOpen)
                     .disabled(!canOpen)
                     .frame(maxWidth: .infinity)
-                KTSiteShareControls(shareStarting: shareStarting, shareURL: shareURL, onToggleShare: onToggleShare)
+                KTSiteShareControls(shareStarting: shareStarting, shareURL: shareURL,
+                                    shareExpiresAt: shareExpiresAt, onToggleShare: onToggleShare)
                 KTSiteActionsMenu(site: site, canOpen: canOpen,
                                   onOpenLogs: onOpenLogs, onRemove: onRemove,
                                   onRestore: onRestore, onError: onError)

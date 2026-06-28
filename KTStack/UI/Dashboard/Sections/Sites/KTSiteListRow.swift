@@ -9,6 +9,7 @@ struct KTSiteListRow: View {
     let isSharing: Bool
     var shareStarting: Bool = false
     var shareURL: URL? = nil
+    var shareExpiresAt: Date? = nil
     let onOpen: () -> Void
     let onSetVersion: (String) -> Void
     let onSetSecure: (Bool) -> Void
@@ -30,7 +31,7 @@ struct KTSiteListRow: View {
     @State private var phpFramework: PHPFramework = .plain
 
     init(site: Site, availableVersions: [String], canOpen: Bool, isSharing: Bool,
-         shareStarting: Bool = false, shareURL: URL? = nil,
+         shareStarting: Bool = false, shareURL: URL? = nil, shareExpiresAt: Date? = nil,
          onOpen: @escaping () -> Void, onSetVersion: @escaping (String) -> Void,
          onSetSecure: @escaping (Bool) -> Void, onEditDomain: @escaping (String) throws -> Void,
          onOpenLogs: @escaping () -> Void, onToggleShare: @escaping (Bool) -> Void,
@@ -42,6 +43,7 @@ struct KTSiteListRow: View {
         self.isSharing = isSharing
         self.shareStarting = shareStarting
         self.shareURL = shareURL
+        self.shareExpiresAt = shareExpiresAt
         self.onOpen = onOpen
         self.onSetVersion = onSetVersion
         self.onSetSecure = onSetSecure
@@ -119,7 +121,8 @@ struct KTSiteListRow: View {
                 .ktTip("Serve over HTTPS with a locally-trusted certificate")
                 .accessibilityLabel("Serve \(site.domain) over HTTPS")
 
-            KTSiteShareControls(shareStarting: shareStarting, shareURL: shareURL, onToggleShare: onToggleShare)
+            KTSiteShareControls(shareStarting: shareStarting, shareURL: shareURL,
+                                shareExpiresAt: shareExpiresAt, onToggleShare: onToggleShare)
 
             KTButton(title: "Open", kind: .secondary, action: onOpen)
                 .disabled(!canOpen)
