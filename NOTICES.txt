@@ -1,5 +1,5 @@
 KTStack — Third-Party Notices
-Generated: 2026-06-22T16:24:03Z
+Generated: 2026-06-28T15:14:37Z
 KTStack is distributed free of charge as open-source software.
 
 == Redistributed components ==
@@ -180,7 +180,7 @@ scripts/build-php-versions.sh; request a copy at the project repository or the c
   - GNU Aspell (libaspell/libpspell)
   - GNU libtool (libltdl)
 
-Contact: <set release contact / repository URL here>
+Contact: https://github.com/KTStackAPP/KTStack
 
 Full license texts for each component are available at the Source URLs above and are included
 with the corresponding upstream distributions.
