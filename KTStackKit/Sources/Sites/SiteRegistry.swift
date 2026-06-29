@@ -89,7 +89,7 @@ public final class SiteRegistry: ObservableObject {
         let resolvedPHP = respectProjectMarkers
             ? resolveInitialPHP(folder: folder, fallback: phpVersion)
             : (knownPHPVersions().contains(phpVersion) ? phpVersion : (knownPHPVersions().first ?? BundledPHP.defaultVersion))
-        let site = Site(
+        var site = Site(
             name: folder.lastPathComponent,
             path: folder.path,
             docroot: info.docroot.path,
@@ -98,9 +98,19 @@ public final class SiteRegistry: ObservableObject {
             type: info.type,
             databaseName: databaseName
         )
+        if info.type == .node { site.nodePort = nextFreeNodePort() }
         sites.append(site)
         persist()
         return site
+    }
+
+    public func nextFreeNodePort() -> Int {
+        let used = Set(sites.compactMap(\.nodePort))
+        let reserved: Set<Int> = [3306, 5432, 6379, 8025, 27017]
+        for port in 3000 ... 3999 where !used.contains(port) && !reserved.contains(port) {
+            return port
+        }
+        return 3000
     }
 
     public func remove(_ site: Site) {

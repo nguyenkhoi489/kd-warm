@@ -105,6 +105,29 @@ final class SiteRegistryTests: XCTestCase {
         XCTAssertEqual(reloaded.sites.first?.databaseName, "shop_db")
     }
 
+    private func nodeFolder(in dir: URL, named: String) throws -> URL {
+        let f = dir.appendingPathComponent(named, isDirectory: true)
+        try fm.createDirectory(at: f, withIntermediateDirectories: true)
+        try "{}".write(to: f.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        return f
+    }
+
+    func testAddNodeSiteAssignsDistinctFreePorts() throws {
+        let (reg, dir) = makeRegistry(); defer { try? fm.removeItem(at: dir) }
+        let api = try reg.add(folder: nodeFolder(in: dir, named: "api"))
+        let web = try reg.add(folder: nodeFolder(in: dir, named: "web"))
+        XCTAssertEqual(api.type, .node)
+        XCTAssertEqual(api.nodePort, 3000)
+        XCTAssertEqual(web.nodePort, 3001)
+    }
+
+    func testNextFreeNodePortSkipsUsedPorts() throws {
+        let (reg, dir) = makeRegistry(); defer { try? fm.removeItem(at: dir) }
+        _ = try reg.add(folder: nodeFolder(in: dir, named: "api"))
+        _ = try reg.add(folder: nodeFolder(in: dir, named: "web"))
+        XCTAssertEqual(reg.nextFreeNodePort(), 3002)
+    }
+
     func testLegacySiteJSONWithoutDatabaseNameDecodesAsNil() throws {
         let (_, dir) = makeRegistry(); defer { try? fm.removeItem(at: dir) }
         let store = dir.appendingPathComponent("sites.json")
