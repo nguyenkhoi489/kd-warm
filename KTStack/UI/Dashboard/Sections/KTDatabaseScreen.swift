@@ -147,11 +147,10 @@ struct KTDatabaseScreen: View {
                     profile: profile,
                     status: reachability.currentStatus(for: profile.id),
                     databaseCount: databaseCount(for: profile),
-                    isConnected: isConnected(profile),
                     onOpen: { open(profile) },
                     onBackup: { backupServer(profile) },
                     onRestore: { tab = .backups },
-                    onDisconnect: { disconnect(profile) }
+                    onRemove: { remove(profile) }
                 )
             }
         }
@@ -277,6 +276,11 @@ struct KTDatabaseScreen: View {
             DatabaseV2WindowController.shared.close()
             vm.deselect()
         }
+    }
+
+    private func remove(_ profile: ConnectionProfile) {
+        if isConnected(profile) { disconnect(profile) }
+        connectionStore.remove(profile)
     }
 
     private func backupServer(_ profile: ConnectionProfile) {

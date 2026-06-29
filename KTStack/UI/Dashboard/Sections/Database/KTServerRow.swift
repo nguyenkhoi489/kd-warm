@@ -16,11 +16,10 @@ struct KTServerRow: View {
     let profile: ConnectionProfile
     let status: ServerStatus
     let databaseCount: Int?
-    let isConnected: Bool
     let onOpen: () -> Void
     let onBackup: () -> Void
     let onRestore: () -> Void
-    let onDisconnect: () -> Void
+    let onRemove: () -> Void
 
     @State private var hovering = false
 
@@ -66,7 +65,8 @@ struct KTServerRow: View {
                 Button("Backup Now", systemImage: "tray.and.arrow.down", action: onBackup).disabled(!isOnline)
                 Button("Restore from Backups…", systemImage: "clock.arrow.circlepath", action: onRestore)
                 Divider()
-                Button("Disconnect", systemImage: "bolt.slash", action: onDisconnect).disabled(!isConnected)
+                Button("Remove from List", systemImage: "trash", role: .destructive, action: onRemove)
+                    .disabled(profile.isManaged)
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 15, weight: .regular))
                     .foregroundStyle(KTColor.muted).frame(width: 28, height: 30).contentShape(Rectangle())
