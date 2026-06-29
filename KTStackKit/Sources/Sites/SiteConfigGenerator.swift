@@ -61,7 +61,7 @@ public struct SiteConfigGenerator {
     }
 
     private func nodeProxyPort(for site: Site) -> Int? {
-        guard site.type == .node, site.nodeEnabled, let port = site.nodePort else { return nil }
+        guard site.type == .node, let port = site.nodePort else { return nil }
         return port
     }
 
