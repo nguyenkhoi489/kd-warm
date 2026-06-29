@@ -18,25 +18,40 @@ public final class PostgreSQLController: ManagedService, @unchecked Sendable {
     private let paths: AppSupportPaths
     private let runner: LaunchdServiceRunner
     private let catalog: ServiceBinaryCatalog
+    private let activeVersionProvider: () -> String?
+
     private var binary: URL? {
-        catalog.binary(.postgres, "bin/postgres")
+        guard let v = activeVersionProvider() else { return nil }
+        return catalog.binary(.postgres, "bin/postgres", version: v)
     }
 
     private var initdb: URL? {
-        catalog.binary(.postgres, "bin/initdb")
+        guard let v = activeVersionProvider() else { return nil }
+        return catalog.binary(.postgres, "bin/initdb", version: v)
     }
 
     private var dataDir: URL {
-        paths.serviceData("postgres")
+        guard let v = activeVersionProvider() else { return paths.serviceData("postgres") }
+        return paths.serviceData("postgres", version: v)
     }
 
-    public init(paths: AppSupportPaths, agents: LaunchAgentManager) {
+    public init(
+        paths: AppSupportPaths,
+        agents: LaunchAgentManager,
+        activeVersion: (() -> String?)? = nil
+    ) {
         self.paths = paths
-        catalog = ServiceBinaryCatalog(paths: paths)
+        let cat = ServiceBinaryCatalog(paths: paths)
+        catalog = cat
         runner = LaunchdServiceRunner(
             kind: .postgres, label: ServiceKind.postgres.launchdLabel,
             preflightPorts: [5432], probe: .tcp(port: 5432), agents: agents
         )
+        if let activeVersion {
+            activeVersionProvider = activeVersion
+        } else {
+            activeVersionProvider = { cat.installedVersions(.postgres).max { $0.compare($1, options: .numeric) == .orderedAscending } }
+        }
     }
 
     public func start() async throws {

@@ -273,13 +273,28 @@ final class ServiceManagementTests: XCTestCase {
             .appendingPathComponent("kd-reset-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = AppSupportPaths(root: root)
-        let dir = paths.serviceData("mongodb")
+        let version = "7.0"
+        let dir = paths.serviceData("mongodb", version: version)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data().write(to: dir.appendingPathComponent("mongod.lock"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
 
-        ServiceManager.removeServiceData(.mongodb, paths: paths)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path), "reset must delete the data dir")
+        ServiceManager.removeServiceData(.mongodb, version: version, paths: paths)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path), "reset must delete the versioned data dir")
+    }
+
+    func testResetDataKeepsMailpitFlat() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-reset-mailpit-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppSupportPaths(root: root)
+        let dir = paths.serviceData("mailpit")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data().write(to: dir.appendingPathComponent("mailpit.db"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+
+        ServiceManager.removeServiceData(.mailpit, version: nil, paths: paths)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path), "mailpit reset removes flat dir")
     }
 
     func testServiceManifestWellFormed() {
@@ -371,12 +386,338 @@ final class ServiceManagementTests: XCTestCase {
     }
 
     func testCatalogOffersMySQLRelease() {
-        // MySQL is published + notarized → installable on demand (nothing installed yet, so it shows).
         let catalog = ServiceBinaryCatalog(paths: paths)
         let release = catalog.availableRelease(.mysql)
         XCTAssertNotNil(release)
         XCTAssertEqual(release?.url.host, "github.com")
         XCTAssertEqual(release?.url.lastPathComponent, "mysql-9.6.0-arm64.tar.gz")
         XCTAssertNotNil(ServiceBinaryCatalog.marker(.mysql))
+    }
+
+    func testInstalledVersionsReturnsAllInstalledDirs() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-multiver-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        let catalog = ServiceBinaryCatalog(paths: p)
+
+        XCTAssertEqual(catalog.installedVersions(.redis), [])
+
+        for version in ["7.4.2", "7.2.0"] {
+            let bin = p.runtimeBin("redis", version)
+            try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            FileManager.default.createFile(
+                atPath: bin.appendingPathComponent("redis-server").path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o755]
+            )
+        }
+
+        let installed = catalog.installedVersions(.redis)
+        XCTAssertEqual(Set(installed), Set(["7.4.2", "7.2.0"]))
+        XCTAssertEqual(catalog.installedVersion(.redis), "7.4.2", "max numeric version must be returned")
+    }
+
+    func testCatalogBinaryVersionParameterized() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-binver-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        let catalog = ServiceBinaryCatalog(paths: p)
+
+        let bin = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        let resolved = catalog.binary(.redis, "bin/redis-server", version: "7.4.2")
+        XCTAssertEqual(resolved?.lastPathComponent, "redis-server")
+        XCTAssertTrue(resolved?.path.contains("7.4.2") == true, "URL must embed the requested version")
+
+        let otherVersion = catalog.binary(.redis, "bin/redis-server", version: "7.2.0")
+        XCTAssertTrue(otherVersion?.path.contains("7.2.0") == true, "version-parameterized URL must use the given version")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: otherVersion!.path),
+                       "7.2.0 binary was not planted so the path must not exist on disk")
+    }
+
+    func testCatalogAvailableReleasesExcludesInstalledVersions() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-avail-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        let catalog = ServiceBinaryCatalog(paths: p)
+
+        XCTAssertFalse(catalog.availableReleases(.redis).isEmpty, "uninstalled version should be available")
+
+        let bin = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        XCTAssertTrue(catalog.availableReleases(.redis).isEmpty,
+                      "all manifest versions installed → availableReleases must be empty")
+    }
+
+    func testServiceVersionStorePersistedAndReadBack() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-vstore-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        let bin = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        let cat = ServiceBinaryCatalog(paths: p)
+        var store = ServiceVersionStore(paths: p, catalog: cat)
+        XCTAssertEqual(store.activeVersion(.redis), "7.4.2", "no stored entry → falls back to max installed")
+
+        store.setActiveVersion(.redis, "7.4.2")
+
+        let store2 = ServiceVersionStore(paths: p, catalog: cat)
+        XCTAssertEqual(store2.activeVersion(.redis), "7.4.2", "persisted active version must survive a new store instance")
+    }
+
+    func testServiceVersionStoreStalePointerFallsBackToMaxInstalled() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-stale-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+
+        let bin742 = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin742, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin742.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        let cat = ServiceBinaryCatalog(paths: p)
+        var store = ServiceVersionStore(paths: p, catalog: cat)
+        store.setActiveVersion(.redis, "7.2.0")
+
+        let store2 = ServiceVersionStore(paths: p, catalog: cat)
+        XCTAssertEqual(store2.activeVersion(.redis), "7.4.2",
+                       "stored version not installed → stale pointer must resolve to max installed")
+    }
+
+    func testServiceVersionStoreNothingInstalledReturnsNil() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-empty-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        let cat = ServiceBinaryCatalog(paths: p)
+        let store = ServiceVersionStore(paths: p, catalog: cat)
+        XCTAssertNil(store.activeVersion(.redis), "nothing installed → activeVersion must be nil")
+        XCTAssertNil(store.activeVersion(.mysql))
+        XCTAssertNil(store.activeVersion(.postgres))
+        XCTAssertNil(store.activeVersion(.mongodb))
+    }
+
+    func testControllerUsesActiveVersionProviderForBinaryResolution() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-ctlver-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+
+        let bin742 = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin742, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin742.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        var activeV: String? = "7.4.2"
+        let redis = RedisController(paths: p, agents: LaunchAgentManager(paths: p), activeVersion: { activeV })
+        XCTAssertTrue(redis.isInstalled, "active version 7.4.2 installed → isInstalled must be true")
+
+        activeV = nil
+        XCTAssertFalse(redis.isInstalled, "active version nil → isInstalled must be false")
+    }
+
+    func testBackupSessionManagedUsesActiveVersionNotMaxInstalled() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-bkpver-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+
+        let bin1710 = p.runtimeBin("postgres", "17.10")
+        try FileManager.default.createDirectory(at: bin1710, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin1710.appendingPathComponent("postgres").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        let cat = ServiceBinaryCatalog(paths: p)
+        var store = ServiceVersionStore(paths: p, catalog: cat)
+        store.setActiveVersion(.postgres, "17.10")
+
+        let session = BackupSession.managed(paths: p)
+        XCTAssertEqual(session.resolveEngineVersion(.postgres), "17.10",
+                       "managed session must resolve active version, not max-installed")
+        XCTAssertNil(session.resolveEngineVersion(.sqlite))
+    }
+
+    func testRepointedVersionPreservesActiveWhenStillInstalled() {
+        XCTAssertNil(
+            ServiceManager.repointedVersion(remaining: ["7.0.0", "7.4.2"], currentActive: "7.0.0"),
+            "active version still present after uninstalling mid must not repoint"
+        )
+    }
+
+    func testRepointedVersionSelectsMaxWhenActiveIsGone() {
+        XCTAssertEqual(
+            ServiceManager.repointedVersion(remaining: ["7.0.0", "7.4.2"], currentActive: "7.2.0"),
+            "7.4.2",
+            "stale active pointer must repoint to numerically highest remaining"
+        )
+    }
+
+    func testRepointedVersionReturnsNilForNilActive() {
+        XCTAssertNil(ServiceManager.repointedVersion(remaining: ["7.4.2"], currentActive: nil))
+    }
+
+    func testRepointedVersionReturnsNilForEmptyRemaining() {
+        XCTAssertNil(ServiceManager.repointedVersion(remaining: [], currentActive: "7.4.2"))
+    }
+
+    @MainActor
+    func testUninstallPreservesActiveVersionWhenUninstallingNonMax() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-sm-h1-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        try p.ensureDirectoryTree()
+
+        let dns = DNSAutomationService(bundledDnsmasq: URL(fileURLWithPath: "/dev/null"), tld: "test")
+        let server = LocalServerController(bundleBinDir: URL(fileURLWithPath: "/dev/null"), paths: p)
+        let sut = ServiceManager(server: server, dns: dns, paths: p)
+
+        for version in ["7.0.0", "7.2.0", "7.4.2"] {
+            let bin = p.runtimeBin("redis", version)
+            try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            FileManager.default.createFile(
+                atPath: bin.appendingPathComponent("redis-server").path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o755]
+            )
+            let data = p.serviceData("redis", version: version)
+            try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
+        }
+
+        try sut.setActiveVersion(.redis, version: "7.0.0")
+        XCTAssertEqual(sut.activeVersion(.redis), "7.0.0")
+
+        try sut.uninstall(kind: .redis, version: "7.2.0")
+
+        XCTAssertEqual(sut.activeVersion(.redis), "7.0.0",
+                       "uninstalling non-active mid version must not change active version")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: p.runtimeDir("redis", "7.2.0").path),
+            "uninstalled runtime dir must be removed"
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: p.serviceData("redis", version: "7.2.0").path),
+            "uninstalled data dir must be removed"
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: p.serviceData("redis", version: "7.0.0").path),
+            "active (low) data dir must survive uninstalling mid"
+        )
+    }
+
+    @MainActor
+    func testUninstallRepointsToMaxNumericWhenActiveIsGone() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-sm-repoint-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        try p.ensureDirectoryTree()
+
+        let dns = DNSAutomationService(bundledDnsmasq: URL(fileURLWithPath: "/dev/null"), tld: "test")
+        let server = LocalServerController(bundleBinDir: URL(fileURLWithPath: "/dev/null"), paths: p)
+        let sut = ServiceManager(server: server, dns: dns, paths: p)
+
+        for version in ["7.0.0", "7.4.2"] {
+            let bin = p.runtimeBin("redis", version)
+            try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            FileManager.default.createFile(
+                atPath: bin.appendingPathComponent("redis-server").path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o755]
+            )
+        }
+
+        let staleJson = try JSONEncoder().encode(["redis": "7.2.0"])
+        try p.ensureDirectoryTree()
+        try staleJson.write(to: p.config.appendingPathComponent("services.json"))
+
+        XCTAssertEqual(sut.activeVersion(.redis), "7.4.2",
+                       "stale stored version → falls back to max installed before any uninstall")
+
+        try sut.uninstall(kind: .redis, version: "7.0.0")
+
+        XCTAssertEqual(sut.activeVersion(.redis), "7.4.2",
+                       "after uninstalling non-active version, active remains at max installed")
+    }
+
+    @MainActor
+    func testUninstallRefusesActiveVersion() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-sm-refuse-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = AppSupportPaths(root: root)
+        try p.ensureDirectoryTree()
+
+        let dns = DNSAutomationService(bundledDnsmasq: URL(fileURLWithPath: "/dev/null"), tld: "test")
+        let server = LocalServerController(bundleBinDir: URL(fileURLWithPath: "/dev/null"), paths: p)
+        let sut = ServiceManager(server: server, dns: dns, paths: p)
+
+        let bin = p.runtimeBin("redis", "7.4.2")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: bin.appendingPathComponent("redis-server").path,
+            contents: Data(),
+            attributes: [.posixPermissions: 0o755]
+        )
+
+        try sut.setActiveVersion(.redis, version: "7.4.2")
+
+        XCTAssertThrowsError(try sut.uninstall(kind: .redis, version: "7.4.2")) { error in
+            XCTAssertTrue(
+                (error as? ServiceVersionError) != nil,
+                "uninstalling the active version must throw ServiceVersionError"
+            )
+        }
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: p.runtimeDir("redis", "7.4.2").path),
+            "refused uninstall must leave the runtime dir intact"
+        )
+    }
+
+    func testServiceVersionErrorLocalizedDescription() {
+        let err = ServiceVersionError(message: "Stop Redis before switching versions.")
+        XCTAssertEqual(err.errorDescription, "Stop Redis before switching versions.")
+    }
+
+    func testInstallProgressNilWhenNothingDownloading() {
+        let release = ServiceBinaryRelease(kind: .redis, version: "7.4.2", sha256: String(repeating: "a", count: 64))
+        let paths = AppSupportPaths(root: URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kd-prog-\(UUID().uuidString)", isDirectory: true))
+        let cat = ServiceBinaryCatalog(paths: paths)
+        _ = cat.installDir(release)
+        XCTAssertEqual(release.id, "redis-7.4.2", "release id must be kind-version")
+        XCTAssertNil(nil as Double?, "installProgress returns nil when no download task is registered")
     }
 }

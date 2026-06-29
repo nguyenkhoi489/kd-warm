@@ -20,8 +20,6 @@ public struct ServiceBinaryRelease: Sendable, Hashable, Identifiable {
         self.urlOverridesByArch = urlOverridesByArch
     }
 
-    /// Convenience for releases served from the in-house GitHub release with the canonical filename
-    /// (`<kind>-<ver>-<arch>.tar.gz`); supply the same sha for every supported arch.
     public init(kind: ServiceKind, version: String, sha256: String, supports: [String] = ["arm64", "x86_64"]) {
         self.init(
             kind: kind,
@@ -118,14 +116,29 @@ public struct ServiceBinaryCatalog: Sendable {
         }
     }
 
-    public func installedVersion(_ kind: ServiceKind) -> String? {
-        guard let marker = Self.marker(kind) else { return nil }
+    public func installedVersions(_ kind: ServiceKind) -> [String] {
+        guard let marker = Self.marker(kind) else { return [] }
         let root = paths.runtimeLangRoot(kind.rawValue)
         let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(atPath: root.path) else { return nil }
+        guard let entries = try? fm.contentsOfDirectory(atPath: root.path) else { return [] }
         return entries
             .filter { fm.isExecutableFile(atPath: root.appendingPathComponent($0).appendingPathComponent(marker).path) }
-            .max { $0.compare($1, options: .numeric) == .orderedAscending }
+            .sorted()
+    }
+
+    public func availableReleases(_ kind: ServiceKind) -> [ServiceBinaryRelease] {
+        let installed = Set(installedVersions(kind))
+        return Self.manifest.filter {
+            $0.kind == kind && !installed.contains($0.version) && $0.supportsCurrentArch
+        }
+    }
+
+    public func binary(_ kind: ServiceKind, _ relPath: String, version: String) -> URL? {
+        paths.runtimeDir(kind.rawValue, version).appendingPathComponent(relPath)
+    }
+
+    public func installedVersion(_ kind: ServiceKind) -> String? {
+        installedVersions(kind).max { $0.compare($1, options: .numeric) == .orderedAscending }
     }
 
     public func isInstalled(_ kind: ServiceKind) -> Bool {
@@ -134,12 +147,11 @@ public struct ServiceBinaryCatalog: Sendable {
 
     public func binary(_ kind: ServiceKind, _ relPath: String) -> URL? {
         guard let version = installedVersion(kind) else { return nil }
-        return paths.runtimeDir(kind.rawValue, version).appendingPathComponent(relPath)
+        return binary(kind, relPath, version: version)
     }
 
     public func availableRelease(_ kind: ServiceKind) -> ServiceBinaryRelease? {
-        guard !isInstalled(kind) else { return nil }
-        return Self.manifest.first { $0.kind == kind && $0.supportsCurrentArch }
+        availableReleases(kind).first
     }
 
     public func installDir(_ release: ServiceBinaryRelease) -> URL {

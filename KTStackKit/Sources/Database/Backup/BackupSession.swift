@@ -1,8 +1,5 @@
 import Foundation
 
-/// Engine-agnostic orchestration the relational and document view-models share. Each VM keeps a
-/// `BackupStatus` and the human-readable result; this struct picks the right provider, validates the
-/// version-skew gate before any destructive step, and routes through `BackupLibrary`.
 public struct BackupSession: Sendable {
     public let library: BackupLibrary
     public let resolveEngineVersion: @Sendable (DatabaseKind) -> String?
@@ -15,19 +12,17 @@ public struct BackupSession: Sendable {
         self.resolveEngineVersion = resolveEngineVersion
     }
 
-    /// Default wiring that resolves engine versions from the managed binary catalog so a restore
-    /// refuses across mismatched major versions (e.g. archived `pg_dump -Fc` from PostgreSQL 16
-    /// against an installed 17).
     public static func managed(paths: AppSupportPaths = AppSupportPaths()) -> BackupSession {
-        let catalog = ServiceBinaryCatalog(paths: paths)
         return BackupSession(
             library: BackupLibrary(paths: paths),
             resolveEngineVersion: { kind in
+                let catalog = ServiceBinaryCatalog(paths: paths)
+                let store = ServiceVersionStore(paths: paths, catalog: catalog)
                 switch kind {
-                case .mysql: catalog.installedVersion(.mysql)
-                case .postgres: catalog.installedVersion(.postgres)
-                case .mongodb: catalog.installedVersion(.mongodb)
-                case .sqlite: nil
+                case .mysql: return store.activeVersion(.mysql)
+                case .postgres: return store.activeVersion(.postgres)
+                case .mongodb: return store.activeVersion(.mongodb)
+                case .sqlite: return nil
                 }
             }
         )
@@ -98,9 +93,6 @@ public struct BackupSession: Sendable {
         return nil
     }
 
-    /// `pg_dump -Fc` archives aren't backward-compatible across major versions; refuse a restore when
-    /// the engine major version doesn't match the one stamped at backup time. Major versions match
-    /// when the leading numeric segment is equal (e.g. 17.10 ↔ 17.12 OK; 16 ↔ 17 not).
     private func requireCompatibleVersion(set: BackupSet, kind: DatabaseKind) throws {
         guard let stored = set.engineVersion,
               let current = resolveEngineVersion(kind) else { return }
@@ -115,10 +107,6 @@ public struct BackupSession: Sendable {
         version.split(whereSeparator: { $0 == "." || $0 == "-" }).first.map(String.init) ?? version
     }
 
-    /// Drop the engine's system schemas from a "back up all databases" enumeration. mysqldump
-    /// refuses `information_schema` outright; Postgres templates aren't connectable; Mongo's
-    /// `admin/local/config` carry server state that shouldn't be restored over a user DB. Each set
-    /// is the documented system-database list for that engine — no heuristic guess.
     public static func userDatabaseNames(_ names: [String], for kind: DatabaseKind) -> [String] {
         let system: Set<String> = switch kind {
         case .mysql: ["information_schema", "performance_schema", "mysql", "sys"]

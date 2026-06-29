@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 public final class ServiceManager: ObservableObject {
     public static let order: [ServiceKind] = [.nginx, .phpFpm, .dnsmasq, .mysql, .postgres, .redis, .mongodb, .mailpit]
+    static let dbCacheKinds: Set<ServiceKind> = [.mysql, .postgres, .redis, .mongodb]
 
     @Published public private(set) var snapshots: [ServiceSnapshot] = []
 
@@ -12,7 +13,7 @@ public final class ServiceManager: ObservableObject {
     private let paths: AppSupportPaths
     private let agents: LaunchAgentManager
 
-    private let services: [ServiceKind: ManagedService]
+    private var services: [ServiceKind: ManagedService] = [:]
     private let restart = RestartPolicy()
     private var busy: Set<ServiceKind> = []
     private var pollTask: Task<Void, Never>?
@@ -20,10 +21,11 @@ public final class ServiceManager: ObservableObject {
     private let catalog: ServiceBinaryCatalog
     private let downloader: RuntimeDownloader
     private let metricsSampler = ServiceMetricsSampler()
-    private var downloadFraction: [ServiceKind: Double] = [:]
-    private var installError: [ServiceKind: String] = [:]
-    private var installTasks: [ServiceKind: Task<Void, Never>] = [:]
+    private var downloadFraction: [String: Double] = [:]
+    private var installError: [String: String] = [:]
+    private var installTasks: [String: Task<Void, Never>] = [:]
     private var cancellables = Set<AnyCancellable>()
+    private var versionStore: ServiceVersionStore
 
     public init(
         server: LocalServerController,
@@ -35,14 +37,30 @@ public final class ServiceManager: ObservableObject {
         self.paths = paths
         let agents = LaunchAgentManager(paths: paths)
         self.agents = agents
-        catalog = ServiceBinaryCatalog(paths: paths)
+        let cat = ServiceBinaryCatalog(paths: paths)
+        catalog = cat
         downloader = RuntimeDownloader(paths: paths)
+        versionStore = ServiceVersionStore(paths: paths, catalog: cat)
+        ServiceDataRelocation.runIfNeeded(paths: paths, catalog: cat)
+
+        let mysqlProvider: () -> String? = {
+            ServiceVersionStore(paths: paths, catalog: ServiceBinaryCatalog(paths: paths)).activeVersion(.mysql)
+        }
+        let postgresProvider: () -> String? = {
+            ServiceVersionStore(paths: paths, catalog: ServiceBinaryCatalog(paths: paths)).activeVersion(.postgres)
+        }
+        let redisProvider: () -> String? = {
+            ServiceVersionStore(paths: paths, catalog: ServiceBinaryCatalog(paths: paths)).activeVersion(.redis)
+        }
+        let mongoProvider: () -> String? = {
+            ServiceVersionStore(paths: paths, catalog: ServiceBinaryCatalog(paths: paths)).activeVersion(.mongodb)
+        }
         services = [
             .dnsmasq: DnsmasqProxyService(dns: dns),
-            .mysql: MySQLController(paths: paths, agents: agents),
-            .postgres: PostgreSQLController(paths: paths, agents: agents),
-            .redis: RedisController(paths: paths, agents: agents),
-            .mongodb: MongoDBController(paths: paths, agents: agents),
+            .mysql: MySQLController(paths: paths, agents: agents, activeVersion: mysqlProvider),
+            .postgres: PostgreSQLController(paths: paths, agents: agents, activeVersion: postgresProvider),
+            .redis: RedisController(paths: paths, agents: agents, activeVersion: redisProvider),
+            .mongodb: MongoDBController(paths: paths, agents: agents, activeVersion: mongoProvider),
             .mailpit: MailpitController(paths: paths, agents: agents),
         ]
         snapshots = Self.order.map { ServiceSnapshot(kind: $0, status: .stopped, detail: "", isInstalled: true) }
@@ -112,7 +130,7 @@ public final class ServiceManager: ObservableObject {
     public func startAll() {
         if !server.isRunning { server.start() }
         for kind in [ServiceKind.mysql, .postgres, .redis, .mongodb, .mailpit] {
-            guard let svc = services[kind], svc.isInstalled, installTasks[kind] == nil else { continue }
+            guard let svc = services[kind], svc.isInstalled, activeInstallKey(kind) == nil else { continue }
             perform(kind) { try await svc.start() }
         }
     }
@@ -120,7 +138,7 @@ public final class ServiceManager: ObservableObject {
     public func stopAll() {
         if server.isRunning { server.stop() }
         for kind in [ServiceKind.mysql, .postgres, .redis, .mongodb, .mailpit] {
-            guard let svc = services[kind], installTasks[kind] == nil else { continue }
+            guard let svc = services[kind], activeInstallKey(kind) == nil else { continue }
             perform(kind) { try await svc.stop() }
         }
     }
@@ -128,68 +146,167 @@ public final class ServiceManager: ObservableObject {
     public func restartAll() {
         server.restart()
         for kind in [ServiceKind.mysql, .postgres, .redis, .mongodb, .mailpit] {
-            guard let svc = services[kind], svc.isInstalled, installTasks[kind] == nil else { continue }
+            guard let svc = services[kind], svc.isInstalled, activeInstallKey(kind) == nil else { continue }
             perform(kind) { try await svc.restart() }
         }
     }
 
     public func install(_ kind: ServiceKind) {
-        guard installTasks[kind] == nil else { return }
+        guard activeInstallKey(kind) == nil else { return }
         guard let release = catalog.availableRelease(kind) else {
             if !catalog.isInstalled(kind),
                ServiceBinaryCatalog.manifest.contains(where: { $0.kind == kind })
             {
-                installError[kind] = "\(kind.displayName) isn’t available for \(ServiceBinaryCatalog.arch) yet."
+                installError[kind.rawValue] = "\(kind.displayName) isn't available for \(ServiceBinaryCatalog.arch) yet."
             }
             return
         }
+        let key = release.id
         let marker = ServiceBinaryCatalog.marker(kind) ?? ""
         let dest = catalog.installDir(release)
-        downloadFraction[kind] = 0
-        installError[kind] = nil
+        downloadFraction[key] = 0
+        installError[key] = nil
+        installError[kind.rawValue] = nil
         let downloader = downloader
-        installTasks[kind] = Task { [weak self] in
+        installTasks[key] = Task { [weak self] in
             do {
                 try await downloader.installArchive(
                     url: release.url, sha256: release.sha256, into: dest, markerRelPath: marker
                 ) { progress in
                     Task { @MainActor [weak self] in
-                        guard self?.downloadFraction[kind] != nil else { return }
-                        self?.downloadFraction[kind] = progress.fraction
+                        guard self?.downloadFraction[key] != nil else { return }
+                        self?.downloadFraction[key] = progress.fraction
                     }
                 }
-                await self?.finishInstall(kind, error: nil)
+                await self?.finishInstall(key, error: nil)
             } catch is CancellationError {
-                await self?.finishInstall(kind, error: nil)
+                await self?.finishInstall(key, error: nil)
             } catch {
-                await self?.finishInstall(kind, error: error.localizedDescription)
+                await self?.finishInstall(key, error: error.localizedDescription)
             }
         }
     }
 
     public func cancelInstall(_ kind: ServiceKind) {
-        installTasks[kind]?.cancel()
-        installTasks[kind] = nil
-        downloadFraction[kind] = nil
+        let prefix = "\(kind.rawValue)-"
+        for key in Array(installTasks.keys) where key.hasPrefix(prefix) {
+            installTasks[key]?.cancel()
+            installTasks[key] = nil
+            downloadFraction[key] = nil
+        }
     }
 
-    private func finishInstall(_ kind: ServiceKind, error: String?) {
-        installTasks[kind] = nil
-        downloadFraction[kind] = nil
-        if let error { installError[kind] = error }
+    private func finishInstall(_ key: String, error: String?) {
+        installTasks[key] = nil
+        downloadFraction[key] = nil
+        if let error { installError[key] = error }
+    }
+
+    public func installedVersions(_ kind: ServiceKind) -> [String] {
+        catalog.installedVersions(kind)
+    }
+
+    public func availableReleases(_ kind: ServiceKind) -> [ServiceBinaryRelease] {
+        catalog.availableReleases(kind)
+    }
+
+    public func activeVersion(_ kind: ServiceKind) -> String? {
+        versionStore.activeVersion(kind)
+    }
+
+    public func setActiveVersion(_ kind: ServiceKind, version: String) throws {
+        guard snapshot(kind)?.status != .running else {
+            throw ServiceVersionError(message: "Stop \(kind.displayName) before switching versions.")
+        }
+        objectWillChange.send()
+        versionStore.setActiveVersion(kind, version)
+    }
+
+    public func install(_ release: ServiceBinaryRelease) {
+        let key = release.id
+        guard installTasks[key] == nil, activeInstallKey(release.kind) == nil else { return }
+        let marker = ServiceBinaryCatalog.marker(release.kind) ?? ""
+        let dest = catalog.installDir(release)
+        downloadFraction[key] = 0
+        installError[key] = nil
+        installError[release.kind.rawValue] = nil
+        let downloader = downloader
+        installTasks[key] = Task { [weak self] in
+            do {
+                try await downloader.installArchive(
+                    url: release.url, sha256: release.sha256, into: dest, markerRelPath: marker
+                ) { progress in
+                    Task { @MainActor [weak self] in
+                        guard self?.downloadFraction[key] != nil else { return }
+                        self?.downloadFraction[key] = progress.fraction
+                        self?.objectWillChange.send()
+                    }
+                }
+                await self?.finishInstall(key, error: nil)
+            } catch is CancellationError {
+                await self?.finishInstall(key, error: nil)
+            } catch {
+                await self?.finishInstall(key, error: error.localizedDescription)
+            }
+        }
+    }
+
+    public func cancelInstall(_ release: ServiceBinaryRelease) {
+        let key = release.id
+        installTasks[key]?.cancel()
+        installTasks[key] = nil
+        downloadFraction[key] = nil
+        objectWillChange.send()
+    }
+
+    public func uninstall(kind: ServiceKind, version: String) throws {
+        if version == activeVersion(kind) {
+            throw ServiceVersionError(message: "Set a different active version before uninstalling \(kind.displayName) \(version).")
+        }
+        if snapshot(kind)?.status == .running {
+            throw ServiceVersionError(message: "Stop \(kind.displayName) before uninstalling a version.")
+        }
+        objectWillChange.send()
+        let fm = FileManager.default
+        try fm.removeItem(at: paths.runtimeDir(kind.rawValue, version))
+        try? fm.removeItem(at: paths.serviceData(kind.rawValue, version: version))
+        let remaining = catalog.installedVersions(kind)
+        if let newActive = Self.repointedVersion(remaining: remaining, currentActive: activeVersion(kind)) {
+            versionStore.setActiveVersion(kind, newActive)
+        }
+    }
+
+    nonisolated static func repointedVersion(remaining: [String], currentActive: String?) -> String? {
+        guard let currentActive, !remaining.contains(currentActive) else { return nil }
+        return remaining.max { $0.compare($1, options: .numeric) == .orderedAscending }
+    }
+
+    public func installProgress(for release: ServiceBinaryRelease) -> Double? {
+        downloadFraction[release.id]
+    }
+
+    public func isInstallInFlight(_ kind: ServiceKind) -> Bool {
+        activeInstallKey(kind) != nil
     }
 
     public func resetData(_ kind: ServiceKind) {
         guard let svc = services[kind] else { return }
         let paths = paths
+        let version = Self.dbCacheKinds.contains(kind) ? versionStore.activeVersion(kind) : nil
         perform(kind) {
             try? await svc.stop()
-            Self.removeServiceData(kind, paths: paths)
+            Self.removeServiceData(kind, version: version, paths: paths)
         }
     }
 
-    public nonisolated static func removeServiceData(_ kind: ServiceKind, paths: AppSupportPaths) {
-        try? FileManager.default.removeItem(at: paths.serviceData(kind.rawValue))
+    public nonisolated static func removeServiceData(_ kind: ServiceKind, version: String?, paths: AppSupportPaths) {
+        let target: URL
+        if let v = version, dbCacheKinds.contains(kind) {
+            target = paths.serviceData(kind.rawValue, version: v)
+        } else {
+            target = paths.serviceData(kind.rawValue)
+        }
+        try? FileManager.default.removeItem(at: target)
     }
 
     private func refresh() async {
@@ -217,14 +334,16 @@ public final class ServiceManager: ObservableObject {
             return ServiceSnapshot(kind: kind, status: .stopped, detail: "", isInstalled: false)
         }
         guard svc.isInstalled else {
-            let installing = downloadFraction[kind] != nil
+            let key = activeInstallKey(kind)
+            let fraction = key.flatMap { downloadFraction[$0] }
+            let installing = fraction != nil
             return ServiceSnapshot(
                 kind: kind, status: .stopped,
                 detail: installing ? "Installing…" : "Not installed",
                 isInstalled: false, isBusy: busy.contains(kind),
-                errorMessage: installError[kind],
+                errorMessage: installErrorMessage(kind),
                 installable: catalog.availableRelease(kind) != nil,
-                downloadFraction: downloadFraction[kind]
+                downloadFraction: fraction
             )
         }
 
@@ -255,6 +374,19 @@ public final class ServiceManager: ObservableObject {
             isBusy: busy.contains(kind),
             errorMessage: status == .error ? lastErrorMessage(kind) : nil
         )
+    }
+
+    private func activeInstallKey(_ kind: ServiceKind) -> String? {
+        let prefix = "\(kind.rawValue)-"
+        return downloadFraction.keys.first { $0.hasPrefix(prefix) }
+    }
+
+    private func installErrorMessage(_ kind: ServiceKind) -> String? {
+        let prefix = "\(kind.rawValue)-"
+        for (key, msg) in installError {
+            if key.hasPrefix(prefix) || key == kind.rawValue { return msg }
+        }
+        return nil
     }
 
     private func webSnapshot(_ kind: ServiceKind, status: ServiceStatus, detail: String) -> ServiceSnapshot {

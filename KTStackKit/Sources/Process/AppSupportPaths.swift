@@ -120,6 +120,11 @@ public struct AppSupportPaths: Sendable {
         data.appendingPathComponent(service, isDirectory: true)
     }
 
+    public func serviceData(_ service: String, version: String) -> URL {
+        data.appendingPathComponent(service, isDirectory: true)
+            .appendingPathComponent(version, isDirectory: true)
+    }
+
     public func serviceConfig(_ service: String, ext: String = "conf") -> URL {
         config.appendingPathComponent("\(service).\(ext)")
     }

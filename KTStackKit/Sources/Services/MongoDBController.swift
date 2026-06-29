@@ -18,14 +18,26 @@ public final class MongoDBController: ManagedService, @unchecked Sendable {
     private let paths: AppSupportPaths
     private let runner: LaunchdServiceRunner
     private let catalog: ServiceBinaryCatalog
+    private let activeVersionProvider: () -> String?
 
     private var binary: URL? {
-        catalog.binary(.mongodb, "bin/mongod")
+        guard let v = activeVersionProvider() else { return nil }
+        return catalog.binary(.mongodb, "bin/mongod", version: v)
     }
 
-    public init(paths: AppSupportPaths, agents: LaunchAgentManager) {
+    private var dataDir: URL {
+        guard let v = activeVersionProvider() else { return paths.serviceData("mongodb") }
+        return paths.serviceData("mongodb", version: v)
+    }
+
+    public init(
+        paths: AppSupportPaths,
+        agents: LaunchAgentManager,
+        activeVersion: (() -> String?)? = nil
+    ) {
         self.paths = paths
-        catalog = ServiceBinaryCatalog(paths: paths)
+        let cat = ServiceBinaryCatalog(paths: paths)
+        catalog = cat
         runner = LaunchdServiceRunner(
             kind: .mongodb, label: ServiceKind.mongodb.launchdLabel,
             preflightPorts: [27017], probe: .tcp(port: 27017), agents: agents,
@@ -33,11 +45,16 @@ public final class MongoDBController: ManagedService, @unchecked Sendable {
             // for a fresh-start boot while still failing fast on a real misconfiguration.
             startTimeout: 15
         )
+        if let activeVersion {
+            activeVersionProvider = activeVersion
+        } else {
+            activeVersionProvider = { cat.installedVersions(.mongodb).max { $0.compare($1, options: .numeric) == .orderedAscending } }
+        }
     }
 
     public func start() async throws {
         guard let binary else { throw ServiceNotInstalled(.mongodb) }
-        try ServiceInitializer.ensureDir(paths.serviceData("mongodb"))
+        try ServiceInitializer.ensureDir(dataDir)
         try await runner.start(spec: spec(binary: binary))
     }
 
@@ -58,7 +75,7 @@ public final class MongoDBController: ManagedService, @unchecked Sendable {
         [
             binary.path,
             "--dbpath",
-            paths.serviceData("mongodb").path,
+            dataDir.path,
             "--bind_ip",
             "127.0.0.1",
             "--port",
@@ -70,7 +87,7 @@ public final class MongoDBController: ManagedService, @unchecked Sendable {
         LaunchAgentSpec(
             label: kind.launchdLabel,
             programArguments: mongoArgs(binary: binary),
-            workingDirectory: paths.serviceData("mongodb").path,
+            workingDirectory: dataDir.path,
             stdoutPath: paths.serviceLog("mongodb").path,
             stderrPath: paths.serviceLog("mongodb").path
         )

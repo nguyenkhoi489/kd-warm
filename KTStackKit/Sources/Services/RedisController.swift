@@ -18,23 +18,40 @@ public final class RedisController: ManagedService, @unchecked Sendable {
     private let paths: AppSupportPaths
     private let runner: LaunchdServiceRunner
     private let catalog: ServiceBinaryCatalog
+    private let activeVersionProvider: () -> String?
 
     private var binary: URL? {
-        catalog.binary(.redis, "bin/redis-server")
+        guard let v = activeVersionProvider() else { return nil }
+        return catalog.binary(.redis, "bin/redis-server", version: v)
     }
 
-    public init(paths: AppSupportPaths, agents: LaunchAgentManager) {
+    private var dataDir: URL {
+        guard let v = activeVersionProvider() else { return paths.serviceData("redis") }
+        return paths.serviceData("redis", version: v)
+    }
+
+    public init(
+        paths: AppSupportPaths,
+        agents: LaunchAgentManager,
+        activeVersion: (() -> String?)? = nil
+    ) {
         self.paths = paths
-        catalog = ServiceBinaryCatalog(paths: paths)
+        let cat = ServiceBinaryCatalog(paths: paths)
+        catalog = cat
         runner = LaunchdServiceRunner(
             kind: .redis, label: ServiceKind.redis.launchdLabel,
             preflightPorts: [6379], probe: .tcp(port: 6379), agents: agents
         )
+        if let activeVersion {
+            activeVersionProvider = activeVersion
+        } else {
+            activeVersionProvider = { cat.installedVersions(.redis).max { $0.compare($1, options: .numeric) == .orderedAscending } }
+        }
     }
 
     public func start() async throws {
         guard let binary else { throw ServiceNotInstalled(.redis) }
-        try ServiceInitializer.ensureDir(paths.serviceData("redis"))
+        try ServiceInitializer.ensureDir(dataDir)
         try writeConfig()
         try await runner.start(spec: spec(binary: binary))
     }
@@ -56,7 +73,7 @@ public final class RedisController: ManagedService, @unchecked Sendable {
         let config = """
         bind 127.0.0.1
         port 6379
-        dir "\(paths.serviceData("redis").path)"
+        dir "\(dataDir.path)"
         logfile "\(paths.serviceLog("redis").path)"
         daemonize no
         save 900 1
@@ -68,7 +85,7 @@ public final class RedisController: ManagedService, @unchecked Sendable {
         LaunchAgentSpec(
             label: kind.launchdLabel,
             programArguments: [binary.path, paths.serviceConfig("redis").path],
-            workingDirectory: paths.serviceData("redis").path,
+            workingDirectory: dataDir.path,
             stdoutPath: paths.serviceLog("redis").path,
             stderrPath: paths.serviceLog("redis").path
         )

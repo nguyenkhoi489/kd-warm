@@ -18,25 +18,39 @@ public final class MySQLController: ManagedService, @unchecked Sendable {
     private let paths: AppSupportPaths
     private let runner: LaunchdServiceRunner
     private let catalog: ServiceBinaryCatalog
+    private let activeVersionProvider: () -> String?
+
     private var binary: URL? {
-        catalog.binary(.mysql, "bin/mysqld")
+        guard let v = activeVersionProvider() else { return nil }
+        return catalog.binary(.mysql, "bin/mysqld", version: v)
     }
 
     private var dataDir: URL {
-        paths.serviceData("mysql")
+        guard let v = activeVersionProvider() else { return paths.serviceData("mysql") }
+        return paths.serviceData("mysql", version: v)
     }
 
     private var configFile: URL {
         paths.serviceConfig("mysql", ext: "cnf")
     }
 
-    public init(paths: AppSupportPaths, agents: LaunchAgentManager) {
+    public init(
+        paths: AppSupportPaths,
+        agents: LaunchAgentManager,
+        activeVersion: (() -> String?)? = nil
+    ) {
         self.paths = paths
-        catalog = ServiceBinaryCatalog(paths: paths)
+        let cat = ServiceBinaryCatalog(paths: paths)
+        catalog = cat
         runner = LaunchdServiceRunner(
             kind: .mysql, label: ServiceKind.mysql.launchdLabel,
             preflightPorts: [3306], probe: .tcp(port: 3306), agents: agents
         )
+        if let activeVersion {
+            activeVersionProvider = activeVersion
+        } else {
+            activeVersionProvider = { cat.installedVersions(.mysql).max { $0.compare($1, options: .numeric) == .orderedAscending } }
+        }
     }
 
     public func start() async throws {
