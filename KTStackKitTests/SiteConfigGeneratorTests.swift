@@ -185,6 +185,21 @@ final class SiteConfigGeneratorTests: XCTestCase {
         XCTAssertTrue(try SiteConfigGenerator(paths: paths).generate(sites: []))
         XCTAssertTrue(fm.fileExists(atPath: tunnel.path))
     }
+
+    // MARK: - A3.2 Regeneration guard (regression lock)
+
+    func testSiteConfigGeneratorDoesNotTouchNginxUserConf() throws {
+        let (paths, root) = makePaths(); defer { try? fm.removeItem(at: root) }
+        let knownContent = "# user custom nginx config\n"
+        try knownContent.write(to: paths.nginxUserConf, atomically: true, encoding: .utf8)
+        let gen = SiteConfigGenerator(paths: paths)
+        _ = try gen.generate(sites: [])
+        XCTAssertTrue(fm.fileExists(atPath: paths.nginxUserConf.path),
+                      "SiteConfigGenerator must not delete nginx-extra.conf")
+        let afterContent = try String(contentsOf: paths.nginxUserConf, encoding: .utf8)
+        XCTAssertEqual(afterContent, knownContent,
+                       "SiteConfigGenerator must not modify nginx-extra.conf content")
+    }
 }
 
 final class BundledPHPTests: XCTestCase {
