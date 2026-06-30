@@ -34,6 +34,11 @@ final class ApacheConfigWriterTests: XCTestCase {
         XCTAssertTrue(config(secure: false).contains("AllowOverride All"))
     }
 
+    func testFrontControllerRoutesNonFileURLsToIndexPhp() {
+        // Mirrors the nginx backend's try_files → /index.php so pretty URLs don't 404.
+        XCTAssertTrue(config(secure: false).contains("FallbackResource /index.php"))
+    }
+
     func testSecurePinsCanonicalPort443AndHTTPSEnv() {
         let c = config(secure: true)
         XCTAssertTrue(c.contains("UseCanonicalName On"))

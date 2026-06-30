@@ -42,6 +42,10 @@ public struct ApacheBackend: WebServerBackend {
                 Options Indexes FollowSymLinks
                 AllowOverride All
                 Require all granted
+                # Front-controller routing: send any non-file URL to index.php, matching the
+                # nginx backend's `try_files $uri $uri/ /index.php`. Without this, pretty URLs
+                # (WordPress permalinks, Laravel routes) 404 unless a .htaccess does the rewrite.
+                FallbackResource /index.php
             </Directory>
             DirectoryIndex index.php index.html
 
