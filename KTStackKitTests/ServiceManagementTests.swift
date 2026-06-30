@@ -839,21 +839,27 @@ final class ServiceManagementTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: p.nginxBinary.path)
         let server = LocalServerController(bundleBinDir: URL(fileURLWithPath: "/dev/null"), paths: p)
         let result = await server.validateNginxConfig()
-        XCTAssertNotNil(result)
-        XCTAssertTrue(result?.contains("emerg") == true, "Expected 'emerg' in: \(result ?? "nil")")
+        guard case let .invalid(msg) = result else {
+            XCTFail("Expected .invalid when nginx -t fails, got \(result)")
+            return
+        }
+        XCTAssertTrue(msg.contains("emerg"), "Expected 'emerg' in stderr output: \(msg)")
     }
 
     @MainActor
-    func testValidateNginxConfigReturnsNilWhenBinaryAbsent() async throws {
+    func testValidateNginxConfigReturnsCantRunWhenBinaryAbsent() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("ktstack-lsc-absent-\(UUID().uuidString)", isDirectory: true)
         let p = AppSupportPaths(root: root)
         try p.ensureDirectoryTree()
         defer { try? FileManager.default.removeItem(at: root) }
-        // No binary staged under temp root
+        // No binary staged under temp root — the binary path is not executable
         let server = LocalServerController(bundleBinDir: URL(fileURLWithPath: "/dev/null"), paths: p)
         let result = await server.validateNginxConfig()
-        XCTAssertNil(result)
+        guard case .couldNotRun = result else {
+            XCTFail("Expected .couldNotRun when nginx binary is absent, got \(result)")
+            return
+        }
     }
 
     @MainActor
