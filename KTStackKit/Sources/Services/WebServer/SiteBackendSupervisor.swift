@@ -1,5 +1,16 @@
 import Foundation
 
+// The lifecycle surface the supervisor drives, regardless of engine. Teardown is done by the
+// supervisor via launchd label, so a controller only needs start/reload/running.
+protocol LoopbackBackendController {
+    var isRunning: Bool { get }
+    func start() throws
+    func reload() throws
+}
+
+extension NginxController: LoopbackBackendController {}
+extension ApacheController: LoopbackBackendController {}
+
 // Supervises the per-site loopback backend launchd agents (com.ktstack.site.<id>). Config files
 // are written by SiteConfigGenerator; this starts/reloads/stops the processes and waits for each
 // to actually listen before the front is told to route to it.
@@ -22,17 +33,22 @@ public struct SiteBackendSupervisor: Sendable {
         sites.filter { $0.type == .php && $0.backendPort != nil }
     }
 
-    private func instance(for site: Site) -> NginxInstance {
-        NginxInstance(
-            label: paths.siteBackendLabel(site.id.uuidString),
-            confFile: paths.siteBackendConf(site.id.uuidString),
-            prefix: paths.root,
-            errorLog: paths.siteErrorLog(site.domain)
-        )
-    }
-
-    private func controller(for site: Site) -> NginxController {
-        NginxController(paths: paths, agents: agents, instance: instance(for: site))
+    // Launch the engine the site will actually run (apache only if its binary is installed). Must
+    // match the config SiteConfigGenerator wrote, which uses the same effectiveEngine resolution.
+    private func controller(for site: Site) -> LoopbackBackendController {
+        let label = paths.siteBackendLabel(site.id.uuidString)
+        let conf = paths.siteBackendConf(site.id.uuidString)
+        let errorLog = paths.siteErrorLog(site.domain)
+        switch WebServerBackendFactory.effectiveEngine(site.serverEngine, paths: paths) {
+        case .nginx:
+            return NginxController(
+                paths: paths,
+                agents: agents,
+                instance: NginxInstance(label: label, confFile: conf, prefix: paths.root, errorLog: errorLog)
+            )
+        case .apache:
+            return ApacheController(paths: paths, agents: agents, label: label, conf: conf, errorLog: errorLog)
+        }
     }
 
     // Bring every managed backend up (start new, reload changed to pick up config), confirm each

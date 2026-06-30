@@ -175,6 +175,20 @@ public struct AppSupportPaths: Sendable {
         bin.appendingPathComponent("nginx")
     }
 
+    // Apache is an on-demand per-site engine, never bundled in the .app; the runtime download
+    // populates this relocated install. httpd runs with ServerRoot here and loads modules/*.so.
+    public var apacheRoot: URL {
+        toolsDir("apache")
+    }
+
+    public var apacheBinary: URL {
+        apacheRoot.appendingPathComponent("bin/httpd")
+    }
+
+    public func apacheAvailable(fileManager: FileManager = .default) -> Bool {
+        fileManager.isExecutableFile(atPath: apacheBinary.path)
+    }
+
     public var mkcertBinary: URL {
         bin.appendingPathComponent("mkcert")
     }

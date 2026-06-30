@@ -47,9 +47,11 @@ public struct SiteConfigGenerator {
         return writer.vhostStatic(domain: site.domain, root: URL(fileURLWithPath: site.docroot), accessLog: access, errorLog: error)
     }
 
-    // Standalone backend config for a PHP site, rendered by the site's engine.
+    // Standalone backend config for a PHP site, rendered by the site's effective engine
+    // (apache only if its binary is installed, else nginx).
     public func backendConfigText(for site: Site, backendPort: Int) -> String {
-        let backend = WebServerBackendFactory.backend(for: site.serverEngine)
+        let engine = WebServerBackendFactory.effectiveEngine(site.serverEngine, paths: paths)
+        let backend = WebServerBackendFactory.backend(for: engine, paths: paths)
         let context = BackendRenderContext(
             domain: site.domain,
             root: URL(fileURLWithPath: site.docroot),

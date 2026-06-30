@@ -52,6 +52,6 @@ final class NginxBackendSnapshotTests: XCTestCase {
     }
 
     func testFactoryReturnsNginxForNginxEngine() {
-        XCTAssertEqual(WebServerBackendFactory.backend(for: .nginx).engine, .nginx)
+        XCTAssertEqual(WebServerBackendFactory.backend(for: .nginx, paths: paths).engine, .nginx)
     }
 }
