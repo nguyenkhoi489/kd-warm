@@ -36,22 +36,28 @@ public struct SiteBackendSupervisor: Sendable {
     }
 
     // Bring every managed backend up (start new, reload changed to pick up config), confirm each
-    // listens, and boot out backends whose site is gone. Must run before the front (re)loads so
-    // the front never proxy_passes to a dead loopback port.
-    public func reconcile(sites: [Site]) async throws {
+    // listens, and boot out backends whose site is gone. Per-site failures are isolated: one
+    // backend that won't start only 502s its own host, it must not block the front or its
+    // siblings from coming up. Run before the front (re)loads so healthy hosts never route to a
+    // not-yet-listening backend.
+    public func reconcile(sites: [Site]) async {
         let managed = Self.managed(sites)
         let desiredLabels = Set(managed.map { paths.siteBackendLabel($0.id.uuidString) })
         reapExcept(keeping: desiredLabels)
 
         for site in managed {
             guard let port = site.backendPort else { continue }
-            let ctrl = controller(for: site)
-            if agents.isLoadedNow(paths.siteBackendLabel(site.id.uuidString)) {
-                try? ctrl.reload()
-            } else {
-                try ctrl.start()
+            do {
+                let ctrl = controller(for: site)
+                if agents.isLoadedNow(paths.siteBackendLabel(site.id.uuidString)) {
+                    try ctrl.reload()
+                } else {
+                    try ctrl.start()
+                }
+                try await Self.waitForListen(port: port)
+            } catch {
+                NSLog("KTStack: backend for \(site.domain) did not come up: \(error.localizedDescription)")
             }
-            try await Self.waitForListen(port: port)
         }
     }
 

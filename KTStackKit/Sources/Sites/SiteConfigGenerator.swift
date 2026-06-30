@@ -63,6 +63,12 @@ public struct SiteConfigGenerator {
         return backend.backendConfig(context: context)
     }
 
+    // The front binds :443 only when at least one site is secure AND its cert exists; a secure
+    // site with no cert yet renders as plain :80. Preflight must use the same predicate.
+    public func frontBindsTLS(for sites: [Site]) -> Bool {
+        sites.contains { $0.secure && certPresent(for: $0) }
+    }
+
     private func certPresent(for site: Site) -> Bool {
         let fm = FileManager.default
         return fm.fileExists(atPath: paths.siteCert(site.domain).path)

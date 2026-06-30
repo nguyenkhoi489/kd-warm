@@ -60,6 +60,29 @@ final class SiteConfigGeneratorTests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: paths.siteBackendConf(portless.id.uuidString).path))
     }
 
+    func testStaticAndNodeFrontVhostsAreByteIdenticalToWriters() {
+        let (paths, root) = makePaths(); defer { try? fm.removeItem(at: root) }
+        let gen = SiteConfigGenerator(paths: paths)
+        let writer = NginxConfigWriter()
+
+        let stat = site("html.test", type: .staticSite)
+        XCTAssertEqual(gen.frontVhostText(for: stat), writer.vhostStatic(
+            domain: "html.test",
+            root: URL(fileURLWithPath: stat.docroot),
+            accessLog: paths.siteAccessLog("html.test"),
+            errorLog: paths.siteErrorLog("html.test")
+        ))
+
+        var node = site("node.test", type: .node)
+        node.nodePort = 3001
+        XCTAssertEqual(gen.frontVhostText(for: node), writer.vhostNodeProxy(
+            domain: "node.test",
+            nodePort: 3001,
+            accessLog: paths.siteAccessLog("node.test"),
+            errorLog: paths.siteErrorLog("node.test")
+        ))
+    }
+
     func testRequiredVersionsOnlyCountsPHPSites() {
         let sites = [
             site("a.test", type: .php, version: "8.4"),

@@ -77,13 +77,17 @@ public final class LocalServerController: ObservableObject {
     private func reattachOnLaunch() {
         let required = generator.poolVersions(for: registry.sites)
         _ = try? pools.reconcile(required: required)
-        // Front is already up; make sure each site's backend is running and listening too.
-        let sites = registry.sites
-        Task.detached(priority: .userInitiated) { [backends] in
-            do { try await backends.reconcile(sites: sites) } catch {}
-        }
         recomputeStatus()
         refreshWatches()
+        // Front is already up; bring each site's backend up too. Take the busy lock so a user
+        // start/stop can't race this on the same com.ktstack.site.* labels.
+        guard !isBusy else { return }
+        isBusy = true
+        let sites = registry.sites
+        Task.detached(priority: .userInitiated) { [backends, self] in
+            await backends.reconcile(sites: sites)
+            await MainActor.run { self.isBusy = false }
+        }
     }
 
     public func restart() {
@@ -234,7 +238,7 @@ public final class LocalServerController: ObservableObject {
             do {
                 try stager.stageIfNeeded()
                 _ = try generator.generate(sites: sites, port: port)
-                try await backends.reconcile(sites: sites)
+                await backends.reconcile(sites: sites)
                 switch preflight.firstConflict(in: frontPorts(for: sites, httpPort: port)) {
                 case .available: break
                 case let .inUse(_, message), let .blocked(message):
@@ -243,7 +247,7 @@ public final class LocalServerController: ObservableObject {
                 try nginx.start()
                 await finish(missing: [], error: nil)
             } catch {
-                nginx.stop()
+                backends.stopAll(); nginx.stop()
                 await finish(missing: [], error: error.localizedDescription)
             }
         }
@@ -302,11 +306,11 @@ public final class LocalServerController: ObservableObject {
             do {
                 try stager.stageIfNeeded()
                 _ = try generator.generate(sites: sites, port: port)
-                try await backends.reconcile(sites: sites)
+                await backends.reconcile(sites: sites)
                 try nginx.start()
                 await finish(missing: [], error: nil)
             } catch {
-                nginx.stop()
+                backends.stopAll(); nginx.stop()
                 await finish(missing: [], error: error.localizedDescription)
             }
         }
@@ -374,8 +378,8 @@ public final class LocalServerController: ObservableObject {
             }
         }
         // Per-site backends must be listening before the front routes to them, else the front
-        // reloads into a dead loopback port and 502s the host.
-        try await backends.reconcile(sites: sites)
+        // reloads into a dead loopback port and 502s the host. Per-site failures are isolated.
+        await backends.reconcile(sites: sites)
         let installedPHP = Set(BundledPHP.availableVersions(php: paths.phpRuntimesRoot))
         let missing = SiteConfigGenerator.requiredVersions(for: sites)
             .subtracting(installedPHP).sorted()
@@ -446,9 +450,10 @@ public final class LocalServerController: ObservableObject {
         try? registry.add(folder: demo)
     }
 
-    // Front owns :80 always and :443 once any site is secure (TLS terminates at the front).
+    // Front owns :80 always and :443 only when a secure site's cert exists (same predicate the
+    // config writer uses to emit the :443 listener), so preflight matches what nginx will bind.
     private nonisolated func frontPorts(for sites: [Site], httpPort: Int) -> [Int] {
-        sites.contains { $0.secure } ? [httpPort, 443] : [httpPort]
+        generator.frontBindsTLS(for: sites) ? [httpPort, 443] : [httpPort]
     }
 
     private nonisolated static func waitForSocket(_ url: URL, timeout: TimeInterval = 5) async throws {
