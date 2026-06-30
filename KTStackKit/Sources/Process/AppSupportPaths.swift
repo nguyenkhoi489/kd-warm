@@ -40,6 +40,23 @@ public struct AppSupportPaths: Sendable {
         nginxConfigDir.appendingPathComponent("sites-enabled", isDirectory: true)
     }
 
+    // Each PHP site's loopback backend gets its own standalone nginx config here.
+    public var backendsConfigDir: URL {
+        nginxConfigDir.appendingPathComponent("backends", isDirectory: true)
+    }
+
+    public func siteBackendConf(_ id: String) -> URL {
+        backendsConfigDir.appendingPathComponent("\(id).conf")
+    }
+
+    public func siteBackendPid(_ id: String) -> URL {
+        run.appendingPathComponent("site-\(id).pid")
+    }
+
+    public func siteBackendLabel(_ id: String) -> String {
+        "com.ktstack.site.\(id)"
+    }
+
     public var phpFpmConfigDir: URL {
         config.appendingPathComponent("php-fpm", isDirectory: true)
     }
@@ -101,6 +118,7 @@ public struct AppSupportPaths: Sendable {
             config,
             nginxConfigDir,
             sitesEnabled,
+            backendsConfigDir,
             phpFpmConfigDir,
             phpConfigDir,
             sitesConfigDir,
