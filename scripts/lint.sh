@@ -17,4 +17,4 @@ echo "swiftformat --lint ."
 swiftformat --lint . || echo "swiftformat reported style drift (non-blocking)."
 
 echo "swiftlint"
-swiftlint --strict=false
+swiftlint lint KTStackKit KTStack KTStackHelper KTStackResolve
