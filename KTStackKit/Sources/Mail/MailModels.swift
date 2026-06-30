@@ -20,6 +20,7 @@ public struct MailSummary: Codable, Sendable, Identifiable, Hashable {
     public let Attachments: Int
 
     public var id: String {
+        // swiftformat:disable:next redundantSelf
         self.ID
     }
 
@@ -56,6 +57,7 @@ public struct MailDetail: Codable, Sendable, Identifiable {
     public let Attachments: [MailAttachment]?
 
     public var id: String {
+        // swiftformat:disable:next redundantSelf
         self.ID
     }
 
