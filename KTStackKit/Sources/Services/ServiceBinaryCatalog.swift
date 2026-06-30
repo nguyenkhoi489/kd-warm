@@ -76,6 +76,7 @@ public struct ServiceBinaryCatalog: Sendable {
             version: "8.4.5",
             sha256ByArch: [
                 "arm64": "4029a0a88f66959be825c3851eeaa9e58d1b9cdbcb887bf8133557b1fc78cf62",
+                "x86_64": "ef9aa86482708409ee94c12373f750337501dc8cd9c451a2f3db6be22ec39c99",
             ]
         ),
         ServiceBinaryRelease(
@@ -83,6 +84,7 @@ public struct ServiceBinaryCatalog: Sendable {
             version: "8.0.43",
             sha256ByArch: [
                 "arm64": "6721b89f9e38e0f192aad617b65ea3e6fa99b8a11b841e44242bb74685962427",
+                "x86_64": "0636cdc1ef01c8a27dda478f51389b2161f093213223695f6b0cbc2d80bdb3e5",
             ]
         ),
         ServiceBinaryRelease(
