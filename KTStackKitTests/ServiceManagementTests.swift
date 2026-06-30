@@ -60,8 +60,13 @@ final class ServiceManagementTests: XCTestCase {
         let p = AppSupportPaths(root: root)
         try p.ensureDirectoryTree()
         let script = p.nginxBinary
+        // Pass the `nginx -t` preflight gate (exit 0) so the failure under test is
+        // reload's own `-s reload` command, not the gate. Otherwise this test would
+        // duplicate testNginxGateBlocksReloadWhenTestFails and leave reload's command
+        // failure path uncovered.
         let contents = """
         #!/bin/sh
+        for arg in "$@"; do [ "$arg" = "-t" ] && exit 0; done
         echo reload failed >&2
         exit 7
         """
@@ -739,7 +744,6 @@ final class ServiceManagementTests: XCTestCase {
     }
 
     private func stageFakeNginx(at paths: AppSupportPaths, script: String) throws {
-        let script = script
         try script.write(to: paths.nginxBinary, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: paths.nginxBinary.path)
     }
