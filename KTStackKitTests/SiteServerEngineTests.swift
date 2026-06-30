@@ -27,4 +27,22 @@ final class SiteServerEngineTests: XCTestCase {
         let site = Site(name: "demo", path: "/s", docroot: "/s/public", domain: "demo.test", phpVersion: "8.4", type: .php)
         XCTAssertEqual(site.serverEngine, .nginx)
     }
+
+    func testPreUpgradeJSONDecodesBackendPortAsNil() throws {
+        let json = """
+        {"name":"demo","path":"/s","docroot":"/s/public","domain":"demo.test","phpVersion":"8.4","type":"php"}
+        """
+        let site = try JSONDecoder().decode(Site.self, from: Data(json.utf8))
+        XCTAssertNil(site.backendPort)
+    }
+
+    func testBackendPortRoundTripsUnderFrozenKey() throws {
+        var site = Site(name: "demo", path: "/s", docroot: "/s/public", domain: "demo.test", phpVersion: "8.4", type: .php)
+        site.backendPort = 4007
+        let data = try JSONEncoder().encode(site)
+        let raw = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(raw["backendPort"] as? Int, 4007)
+        let decoded = try JSONDecoder().decode(Site.self, from: data)
+        XCTAssertEqual(decoded.backendPort, 4007)
+    }
 }
