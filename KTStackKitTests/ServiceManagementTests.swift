@@ -336,7 +336,9 @@ final class ServiceManagementTests: XCTestCase {
         XCTAssertTrue(catalog.isInstalled(.redis))
         XCTAssertEqual(catalog.installedVersion(.redis), "7.4.2")
         XCTAssertEqual(catalog.binary(.redis, "bin/redis-server")?.lastPathComponent, "redis-server")
-        XCTAssertNil(catalog.availableRelease(.redis), "installed engine is not offered for install")
+        let redisAvailable = catalog.availableReleases(.redis).map(\.version)
+        XCTAssertFalse(redisAvailable.contains("7.4.2"), "installed version is not offered for install")
+        XCTAssertTrue(redisAvailable.contains("7.2.14"))
     }
 
     func testCatalogResolvesInstalledMongoDB() throws {
@@ -455,13 +457,15 @@ final class ServiceManagementTests: XCTestCase {
 
         XCTAssertFalse(catalog.availableReleases(.redis).isEmpty, "uninstalled version should be available")
 
-        let bin = p.runtimeBin("redis", "7.4.2")
-        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        FileManager.default.createFile(
-            atPath: bin.appendingPathComponent("redis-server").path,
-            contents: Data(),
-            attributes: [.posixPermissions: 0o755]
-        )
+        for version in catalog.availableReleases(.redis).map(\.version) {
+            let bin = p.runtimeBin("redis", version)
+            try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            FileManager.default.createFile(
+                atPath: bin.appendingPathComponent("redis-server").path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o755]
+            )
+        }
 
         XCTAssertTrue(catalog.availableReleases(.redis).isEmpty,
                       "all manifest versions installed → availableReleases must be empty")

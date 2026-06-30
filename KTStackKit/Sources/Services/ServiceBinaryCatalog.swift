@@ -96,11 +96,35 @@ public struct ServiceBinaryCatalog: Sendable {
             ]
         ),
         ServiceBinaryRelease(
+            kind: .redis,
+            version: "7.2.14",
+            sha256ByArch: [
+                "arm64": "83e6efea6503673d73712856c333d101c62242f0d6a71c4da4c4eed3903e5d2b",
+                "x86_64": "50044fcd76cee4e35c86b642c7d794937ed98014c0876ca26471bc04fd821f85",
+            ]
+        ),
+        ServiceBinaryRelease(
             kind: .postgres,
             version: "17.10",
             sha256ByArch: [
                 "arm64": "2fc58f9f78376b79f5007bfbbd6f724f5f34d81cd429ef6b0c9696ad8617d698",
                 "x86_64": "4e1a6905cc31d135ecea0dafff670dcda3e2493705f00d69cf2f70ec61127651",
+            ]
+        ),
+        ServiceBinaryRelease(
+            kind: .postgres,
+            version: "16.14",
+            sha256ByArch: [
+                "arm64": "3e0ea3a9a22e4cb090efcbaf5079c78aa751e25f57465270359ffd9e427eaf4c",
+                "x86_64": "4bdf3baab265c0ae2e4ecefbde5482aabc0b6c94980e45b1863d534dc8cad096",
+            ]
+        ),
+        ServiceBinaryRelease(
+            kind: .postgres,
+            version: "15.18",
+            sha256ByArch: [
+                "arm64": "6bdc11e09584c6d6ff9257bfc34ef26e4c7e088a729a5c43dade62df57c5fbcc",
+                "x86_64": "0b8979f93acc9df4e5f7bf7ab9a8a7c23088c6aa2d37cd3a30628dadddc3ed06",
             ]
         ),
 
